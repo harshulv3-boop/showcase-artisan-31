@@ -240,8 +240,6 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
       {comp.nodes.map((n) => {
         const screen = screens.find((s) => s.id === n.screenId);
         if (!screen) return null;
-        const x = comp.text ? 0 : 0;
-        void x;
         const px = (0.5 + (n.x - 0.5) * t.spread) * width;
         const py = (0.5 + (n.y - 0.5) * t.spread) * height;
         return (
@@ -305,6 +303,7 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
                 fontWeight: comp.text.weight,
                 letterSpacing: `${comp.text.tracking}em`,
                 textTransform: comp.text.upper ? "uppercase" : "none",
+                overflowWrap: "break-word",
               }}
             >
               {brand.headline}
@@ -340,7 +339,7 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
             inset: 0,
             zIndex: 50,
             pointerEvents: "none",
-            background: `radial-gradient(80% 70% at ${comp.nodes[0]?.x ?? 0.5 ? (comp.nodes[0]?.x ?? 0.5) * 100 : 50}% 45%, transparent 42%, rgba(0,0,0,${comp.vignette}))`,
+            background: `radial-gradient(80% 70% at ${(comp.nodes[0]?.x ?? 0.5) * 100}% 45%, transparent 42%, rgba(0,0,0,${comp.vignette}))`,
           }}
         />
       )}
