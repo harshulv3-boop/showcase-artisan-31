@@ -206,3 +206,25 @@ export type Ratio = {
   w: number;
   h: number;
 };
+
+/** Art direction returned by the AI director (all fields optional/partial). */
+export type AiVariantPlan = {
+  arrangement?: string;
+  label?: string;
+  seed?: number;
+  note?: string;
+  overrides?: {
+    focal?: { x?: number; y?: number };
+    density?: number;
+    negativeSpace?: number;
+    symmetry?: number;
+    perspective?: { tiltY?: number; tiltX?: number; roll?: number };
+    typography?: { align?: "left" | "center" | "right"; upper?: boolean; scaleRatio?: number };
+    device?: { frame?: boolean; shadow?: number; glass?: number };
+  };
+};
+
+export type AiPlan = {
+  direction?: Partial<ArtDirection> & { typography?: Partial<ArtDirection["typography"]>; device?: Partial<ArtDirection["device"]>; decor?: Partial<ArtDirection["decor"]>; lighting?: Partial<ArtDirection["lighting"]>; perspective?: Partial<ArtDirection["perspective"]>; spacing?: Partial<ArtDirection["spacing"]>; focal?: Partial<ArtDirection["focal"]> };
+  variants?: AiVariantPlan[];
+};
