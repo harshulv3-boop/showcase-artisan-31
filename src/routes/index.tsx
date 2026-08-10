@@ -37,7 +37,10 @@ import {
   critique,
   deriveDirection,
 } from "@/lib/showcase/engine";
+import { applyAiDirection } from "@/lib/showcase/direction";
+import { artDirectFn } from "@/lib/showcase/ai.functions";
 import type {
+  AiPlan,
   Brand,
   Composition,
   FontKey,
@@ -129,13 +132,18 @@ function Studio() {
   const [history, setHistory] = useState<Composition[][]>([]);
   const [future, setFuture] = useState<Composition[][]>([]);
   const [busy, setBusy] = useState(false);
+  const [aiPlan, setAiPlan] = useState<AiPlan | null>(null);
   const saltRef = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const ratio = RATIOS.find((r) => r.key === ratioKey) ?? RATIOS[0]!;
   const current = comps.find((c) => c.id === editing) ?? null;
 
-  const direction = useMemo(() => deriveDirection(refs, brand, mood), [refs, brand, mood]);
+  const baseDirection = useMemo(() => deriveDirection(refs, brand, mood), [refs, brand, mood]);
+  const direction = useMemo(
+    () => applyAiDirection(baseDirection, aiPlan?.direction),
+    [baseDirection, aiPlan],
+  );
 
   const commit = useCallback(
     (next: Composition[]) => {
@@ -196,34 +204,80 @@ function Studio() {
     setBrand((b) => ({ ...b, logo: url }));
   }
 
-  function generate() {
+  async function generate() {
     if (!screens.length) {
       toast.error("Upload at least one product screen first");
       return;
     }
     setBusy(true);
     saltRef.current += 1;
-    setTimeout(() => {
-      const next = composeVariants({
-        dir: direction,
-        screens,
-        brand,
-        output,
-        ratio,
-        count: 6,
-        salt: saltRef.current,
+
+    let plan: AiPlan | null = null;
+    try {
+      const raw = await artDirectFn({
+        data: {
+          refs: refs.map((r) => ({
+            name: r.name,
+            role: r.role,
+            aspect: r.signals.aspect,
+            colors: r.signals.colors,
+            luminance: r.signals.luminance,
+            saturation: r.signals.saturation,
+            contrast: r.signals.contrast,
+            warmth: r.signals.warmth,
+            colorVariance: r.signals.colorVariance,
+            edgeDensity: r.signals.edgeDensity,
+            symmetry: r.signals.symmetry,
+            negativeSpace: r.signals.negativeSpace,
+            focalX: r.signals.focalX,
+            focalY: r.signals.focalY,
+            bleed: r.signals.bleed,
+            lightAngle: r.signals.lightAngle,
+            lightIntensity: r.signals.lightIntensity,
+            massSpread: r.signals.massSpread,
+            clusters: r.signals.clusters,
+          })),
+          screens: screens.map((s) => ({ kind: s.kind, aspect: s.width / Math.max(1, s.height) })),
+          brand: {
+            product: brand.product,
+            headline: brand.headline,
+            sub: brand.sub,
+            accent: brand.accent,
+            font: brand.font,
+          },
+          mood,
+          output,
+          variants: 6,
+        },
       });
-      setHistory((h) => [...h, comps]);
-      setFuture([]);
-      setComps(next);
-      setEditing(null);
-      setBusy(false);
-      toast.success(
-        refs.length
-          ? `${next.length} original compositions art-directed from ${refs.length} reference${refs.length > 1 ? "s" : ""}`
-          : `${next.length} original compositions generated`,
-      );
-    }, 300);
+      plan = JSON.parse(raw) as AiPlan;
+      setAiPlan(plan);
+    } catch (err) {
+      console.error(err);
+      toast.warning("AI art director unavailable — used the measured direction instead");
+    }
+
+    const dir = applyAiDirection(baseDirection, plan?.direction);
+    const next = composeVariants({
+      dir,
+      screens,
+      brand,
+      output,
+      ratio,
+      count: 6,
+      salt: saltRef.current,
+      ...(plan?.variants?.length ? { plan: plan.variants } : {}),
+    });
+    setHistory((h) => [...h, comps]);
+    setFuture([]);
+    setComps(next);
+    setEditing(null);
+    setBusy(false);
+    toast.success(
+      plan
+        ? `${next.length} compositions art-directed by AI${refs.length ? ` from ${refs.length} reference${refs.length > 1 ? "s" : ""}` : ""}`
+        : `${next.length} original compositions generated`,
+    );
   }
 
   function regenerateOne(id: string) {

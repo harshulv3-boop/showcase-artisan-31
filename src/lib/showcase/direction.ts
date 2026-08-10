@@ -1,4 +1,4 @@
-import type { ArtDirection, Brand, FontKey, PresetKey, Reference } from "./types";
+import type { AiPlan, ArtDirection, Brand, FontKey, PresetKey, Reference } from "./types";
 import { MOODS } from "./moods";
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -194,5 +194,80 @@ function synthetic(m: (typeof MOODS)[number], brand: Brand): ArtDirection {
     },
     decor: { rules: true, dots: false, blocks: m.key === "brutalist", badges: false, arcs: false, intensity: 0.4 },
     notes: [`No references attached — art-directed from the "${m.label}" mood.`],
+  };
+}
+
+/** Merge the AI director's principles over the measured baseline. */
+export function applyAiDirection(base: ArtDirection, ai: AiPlan["direction"] | undefined): ArtDirection {
+  if (!ai) return base;
+  const num = (v: unknown, fb: number, lo = -Infinity, hi = Infinity) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb;
+  const bool = (v: unknown, fb: boolean) => (typeof v === "boolean" ? v : fb);
+  const hex = (v: unknown, fb: string) => (typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v) ? v : fb);
+
+  const palette = Array.isArray(ai.palette)
+    ? ai.palette.filter((c): c is string => typeof c === "string" && /^#[0-9a-f]{3,8}$/i.test(c))
+    : [];
+
+  return {
+    ...base,
+    dark: bool(ai.dark, base.dark),
+    palette: palette.length >= 3 ? palette.slice(0, 8) : base.palette,
+    ink: hex(ai.ink, base.ink),
+    accent: hex(ai.accent, base.accent),
+    focal: {
+      x: num(ai.focal?.x, base.focal.x, 0.12, 0.88),
+      y: num(ai.focal?.y, base.focal.y, 0.14, 0.86),
+    },
+    negativeSpace: num(ai.negativeSpace, base.negativeSpace, 0.08, 0.92),
+    symmetry: num(ai.symmetry, base.symmetry, 0, 1),
+    density: num(ai.density, base.density, 0, 1),
+    bleed: num(ai.bleed, base.bleed, 0, 1),
+    depthPlanes: Math.round(num(ai.depthPlanes, base.depthPlanes, 1, 3)),
+    perspective: {
+      tiltY: num(ai.perspective?.tiltY, base.perspective.tiltY, -32, 32),
+      tiltX: num(ai.perspective?.tiltX, base.perspective.tiltX, -14, 14),
+      roll: num(ai.perspective?.roll, base.perspective.roll, -16, 16),
+    },
+    lighting: {
+      angle: num(ai.lighting?.angle, base.lighting.angle, 0, 360),
+      intensity: num(ai.lighting?.intensity, base.lighting.intensity, 0, 1),
+      falloff: num(ai.lighting?.falloff, base.lighting.falloff, 0, 1),
+    },
+    spacing: {
+      margin: num(ai.spacing?.margin, base.spacing.margin, 0.02, 0.18),
+      gutter: num(ai.spacing?.gutter, base.spacing.gutter, 0.005, 0.09),
+    },
+    typography: {
+      font: (["grotesk", "serif", "mono", "sans"] as const).includes(ai.typography?.font as FontKey)
+        ? (ai.typography!.font as FontKey)
+        : base.typography.font,
+      scaleRatio: num(ai.typography?.scaleRatio, base.typography.scaleRatio, 0.6, 2),
+      tracking: num(ai.typography?.tracking, base.typography.tracking, -0.08, 0.16),
+      weight: num(ai.typography?.weight, base.typography.weight, 300, 900),
+      upper: bool(ai.typography?.upper, base.typography.upper),
+      align: (["left", "center", "right"] as const).includes(ai.typography?.align as "left")
+        ? (ai.typography!.align as "left" | "center" | "right")
+        : base.typography.align,
+    },
+    device: {
+      frame: bool(ai.device?.frame, base.device.frame),
+      bezel: ai.device?.bezel === "light" || ai.device?.bezel === "dark" ? ai.device.bezel : base.device.bezel,
+      radius: num(ai.device?.radius, base.device.radius, 0, 40),
+      shadow: num(ai.device?.shadow, base.device.shadow, 0, 1.3),
+      edgeLight: num(ai.device?.edgeLight, base.device.edgeLight, 0, 1),
+      glass: num(ai.device?.glass, base.device.glass, 0, 1),
+    },
+    decor: {
+      rules: bool(ai.decor?.rules, base.decor.rules),
+      dots: bool(ai.decor?.dots, base.decor.dots),
+      blocks: bool(ai.decor?.blocks, base.decor.blocks),
+      badges: bool(ai.decor?.badges, base.decor.badges),
+      arcs: bool(ai.decor?.arcs, base.decor.arcs),
+      intensity: num(ai.decor?.intensity, base.decor.intensity, 0, 1),
+    },
+    notes: Array.isArray(ai.notes) && ai.notes.length
+      ? ai.notes.filter((n): n is string => typeof n === "string").slice(0, 6)
+      : base.notes,
   };
 }

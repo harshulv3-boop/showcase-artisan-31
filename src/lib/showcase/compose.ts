@@ -1,4 +1,5 @@
 import type {
+  AiVariantPlan,
   ArtDirection,
   BgLayer,
   Brand,
@@ -490,6 +491,23 @@ function buildDecor(dir: ArtDirection, rnd: () => number, brand: Brand, textY: n
 
 /* ---------------- composer ---------------- */
 
+const ARRANGEMENT_ALIAS: Record<string, string> = {
+  solo: "focal-solo",
+  "focal-solo": "focal-solo",
+  cascade: "diagonal-cascade",
+  "diagonal-cascade": "diagonal-cascade",
+  orbit: "orbital-cluster",
+  "orbital-cluster": "orbital-cluster",
+  wall: "receding-wall",
+  "receding-wall": "receding-wall",
+  mosaic: "irregular-mosaic",
+  "irregular-mosaic": "irregular-mosaic",
+  "split-cluster": "weighted-split",
+  "weighted-split": "weighted-split",
+  "macro-crop": "macro-crop",
+  "shear-stack": "shear-stack",
+};
+
 export function composeVariants(opts: {
   dir: ArtDirection;
   screens: Screen[];
@@ -498,6 +516,8 @@ export function composeVariants(opts: {
   ratio: Ratio;
   count?: number;
   salt?: number;
+  /** per-variant plan from the AI art director */
+  plan?: AiVariantPlan[];
 }): Composition[] {
   const { dir, screens, brand, ratio } = opts;
   if (!screens.length) return [];
@@ -522,22 +542,41 @@ export function composeVariants(opts: {
   const usable = order.length ? order : [STRATEGIES[0]!];
 
   return Array.from({ length: count }, (_, i) => {
-    const rnd = rngFrom(sig + i * 104729);
-    const st = usable[i % usable.length]!;
+    const plan = opts.plan?.[i % Math.max(1, opts.plan.length)];
+    const rnd = rngFrom(sig + i * 104729 + Math.round(plan?.seed ?? 0));
+    const planned = plan?.arrangement
+      ? STRATEGIES.find((s) => s.name === ARRANGEMENT_ALIAS[plan.arrangement!.toLowerCase()] && ranked.length >= s.min)
+      : undefined;
+    const st = planned ?? usable[i % usable.length]!;
+    const ov = plan?.overrides;
+    const numOr = (v: unknown, fb: number) => (typeof v === "number" && Number.isFinite(v) ? v : fb);
 
     // per-variant direction drift: hierarchy, air and perspective all shift
     const v: ArtDirection = {
       ...dir,
       focal: {
-        x: clamp(dir.focal.x + (rnd() - 0.5) * 0.34, 0.16, 0.84),
-        y: clamp(dir.focal.y + (rnd() - 0.5) * 0.26, 0.2, 0.8),
+        x: clamp(numOr(ov?.focal?.x, dir.focal.x + (rnd() - 0.5) * 0.34), 0.16, 0.84),
+        y: clamp(numOr(ov?.focal?.y, dir.focal.y + (rnd() - 0.5) * 0.26), 0.2, 0.8),
       },
-      negativeSpace: clamp(dir.negativeSpace + (rnd() - 0.5) * 0.3, 0.12, 0.88),
-      density: clamp(dir.density + (rnd() - 0.5) * 0.3),
+      negativeSpace: clamp(numOr(ov?.negativeSpace, dir.negativeSpace + (rnd() - 0.5) * 0.3), 0.12, 0.88),
+      density: clamp(numOr(ov?.density, dir.density + (rnd() - 0.5) * 0.3)),
+      symmetry: clamp(numOr(ov?.symmetry, dir.symmetry)),
       perspective: {
-        tiltY: dir.perspective.tiltY * mix(0.35, 1.5, rnd()),
-        tiltX: dir.perspective.tiltX * mix(0.2, 1.4, rnd()),
-        roll: dir.perspective.roll * mix(-1, 1.4, rnd()),
+        tiltY: clamp(numOr(ov?.perspective?.tiltY, dir.perspective.tiltY * mix(0.35, 1.5, rnd())), -32, 32),
+        tiltX: clamp(numOr(ov?.perspective?.tiltX, dir.perspective.tiltX * mix(0.2, 1.4, rnd())), -14, 14),
+        roll: clamp(numOr(ov?.perspective?.roll, dir.perspective.roll * mix(-1, 1.4, rnd())), -16, 16),
+      },
+      typography: {
+        ...dir.typography,
+        scaleRatio: clamp(numOr(ov?.typography?.scaleRatio, dir.typography.scaleRatio), 0.6, 2),
+        align: ov?.typography?.align ?? dir.typography.align,
+        upper: typeof ov?.typography?.upper === "boolean" ? ov.typography.upper : dir.typography.upper,
+      },
+      device: {
+        ...dir.device,
+        frame: typeof ov?.device?.frame === "boolean" ? ov.device.frame : dir.device.frame,
+        shadow: clamp(numOr(ov?.device?.shadow, dir.device.shadow), 0, 1.3),
+        glass: clamp(numOr(ov?.device?.glass, dir.device.glass)),
       },
       bleed: clamp(dir.bleed * mix(0.5, 1.8, rnd())),
     };
@@ -600,7 +639,7 @@ export function composeVariants(opts: {
 
     return {
       id: `c${i + 1}-${st.name}-${(sig % 9973) + i}`,
-      label: st.name.replace(/-/g, " "),
+      label: plan?.label || st.name.replace(/-/g, " "),
       seed: sig + i,
       arrangement: st.name,
       base,
@@ -613,6 +652,7 @@ export function composeVariants(opts: {
       device,
       tune: { scale: 1, spread: 1, tilt: 1 },
       notes: [
+        ...(plan?.note ? [`AI: ${plan.note}`] : []),
         `${st.name.replace(/-/g, " ")} · focal ${Math.round(v.focal.x * 100)}/${Math.round(v.focal.y * 100)}`,
         `${Math.round(v.negativeSpace * 100)}% air · ${nodes.length} plane${nodes.length > 1 ? "s" : ""} · tilt ${Math.round(v.perspective.tiltY)}°`,
         `type ${text.align}, ${text.upper ? "uppercase" : "sentence"}, ${Math.round(typeScale * 100)}%`,
