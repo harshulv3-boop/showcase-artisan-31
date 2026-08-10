@@ -37,7 +37,10 @@ import {
   critique,
   deriveDirection,
 } from "@/lib/showcase/engine";
+import { applyAiDirection } from "@/lib/showcase/direction";
+import { artDirectFn } from "@/lib/showcase/ai.functions";
 import type {
+  AiPlan,
   Brand,
   Composition,
   FontKey,
