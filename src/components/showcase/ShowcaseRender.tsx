@@ -97,12 +97,14 @@ function Device({
   u: number;
 }) {
   const dev = comp.device;
-  const isMobile = screen.kind === "mobile";
-  const bezelBg = dev.bezel === "dark" ? "#0f1116" : "#f3f4f7";
-  const bezelEdge = dev.bezel === "dark" ? "#2b2f39" : "#d7dae2";
-  const pad = node.frame ? (isMobile ? 10 * u : 0) : 0;
-  const radius = (isMobile ? dev.radius * 2.2 : dev.radius) * u + 4;
+  const isMobile = screen.kind === "mobile" || (node.crop ? node.crop.ratio : screen.width / screen.height) < 0.8;
   const w = node.w * width;
+  const dark = dev.bezel !== "light";
+  const bezelBg = dark ? "#0d0f14" : "#eceef3";
+  const bezelEdge = dark ? "#31353f" : "#ffffff";
+  // physical bezel: a phone body is ~3% of its own width, a laptop lid much less
+  const pad = node.frame ? (isMobile ? w * 0.028 : 0) : 0;
+  const radius = node.frame ? (isMobile ? w * 0.1 : Math.max(6 * u, dev.radius * u)) : Math.max(6 * u, dev.radius * u);
 
   const img = (
     <img
@@ -111,61 +113,113 @@ function Device({
       style={{
         display: "block",
         width: node.crop ? `${node.crop.scale * 100}%` : "100%",
-        height: node.crop ? "auto" : "auto",
+        height: "auto",
         objectFit: "cover",
-        transform: node.crop ? `translate(${-node.crop.ox * (node.crop.scale - 1) * 100}%, ${-node.crop.oy * (node.crop.scale - 1) * 100}%)` : undefined,
-        borderRadius: node.frame ? Math.max(0, radius - pad) : radius,
+        transform: node.crop
+          ? `translate(${-node.crop.ox * (node.crop.scale - 1) * 100}%, ${-node.crop.oy * (node.crop.scale - 1) * 100}%)`
+          : undefined,
       }}
     />
   );
 
   const chrome =
     node.frame && !isMobile ? (
-      <div style={{ display: "flex", alignItems: "center", gap: 7 * u, padding: `${10 * u}px ${14 * u}px`, background: bezelBg, borderBottom: `1px solid ${bezelEdge}` }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: w * 0.008,
+          padding: `${w * 0.011}px ${w * 0.016}px`,
+          background: bezelBg,
+          borderBottom: `1px solid ${dark ? "#20232b" : "#dfe2ea"}`,
+        }}
+      >
         {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
-          <span key={c} style={{ width: 10 * u, height: 10 * u, borderRadius: 99, background: c, display: "block" }} />
+          <span key={c} style={{ width: w * 0.0095, height: w * 0.0095, borderRadius: 99, background: c, display: "block" }} />
         ))}
-        <span style={{ marginLeft: 10 * u, flex: 1, height: 14 * u, borderRadius: 99, background: dev.bezel === "dark" ? "#1b1f27" : "#e6e8ee" }} />
+        <span
+          style={{
+            marginLeft: w * 0.02,
+            width: "42%",
+            height: w * 0.017,
+            borderRadius: 99,
+            background: dark ? "#1a1e26" : "#e2e5ec",
+          }}
+        />
       </div>
     ) : null;
 
-  const shadow = dev.shadow;
+  const s = dev.shadow;
 
   return (
     <div
       style={{
         position: "relative",
-        overflow: "hidden",
         width: w,
         borderRadius: radius,
         padding: pad,
         background: node.frame ? bezelBg : "transparent",
-        border: node.frame ? `1px solid ${bezelEdge}` : dev.edgeLight > 0.2 ? `1px solid ${withAlpha("#ffffff", dev.edgeLight * 0.3)}` : "none",
-        boxShadow: shadow
-          ? `0 ${44 * shadow * u}px ${100 * shadow * u}px rgba(3,6,18,${0.5 * shadow}), 0 ${10 * shadow * u}px ${22 * shadow * u}px rgba(3,6,18,${0.28 * shadow})`
-          : "none",
-        maxHeight: node.crop ? `${(node.w / node.crop.ratio) * width}px` : undefined,
+        boxShadow: [
+          node.frame ? `inset 0 0 0 ${Math.max(1, w * 0.0016)}px ${withAlpha(bezelEdge, dark ? 0.16 : 0.9)}` : "",
+          s ? `0 ${w * 0.09 * s}px ${w * 0.16 * s}px rgba(4,7,18,${0.42 * s})` : "",
+          s ? `0 ${w * 0.02 * s}px ${w * 0.05 * s}px rgba(4,7,18,${0.3 * s})` : "",
+        ]
+          .filter(Boolean)
+          .join(", "),
       }}
     >
-      {chrome}
-      {node.frame && isMobile && (
-        <div style={{ position: "absolute", top: 16 * u, left: "50%", transform: "translateX(-50%)", width: "32%", height: 18 * u, borderRadius: 99, background: dev.bezel === "dark" ? "#05060a" : "#c9ccd6", zIndex: 2 }} />
-      )}
-      {img}
-      {dev.glass > 0.15 && (
+      <div
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: Math.max(0, radius - pad),
+          maxHeight: node.crop ? (node.w / node.crop.ratio) * width : undefined,
+          background: "#000",
+        }}
+      >
+        {chrome}
+        {img}
+        {node.frame && isMobile && (
+          <div
+            style={{
+              position: "absolute",
+              top: w * 0.022,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "30%",
+              height: w * 0.032,
+              borderRadius: 99,
+              background: "#05060a",
+              zIndex: 2,
+            }}
+          />
+        )}
+        {/* specular sheen across the glass */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background: `linear-gradient(${105 + (dev.glass ?? 0) * 40}deg, ${withAlpha("#ffffff", 0.16 + dev.glass * 0.24)} 0%, ${withAlpha("#ffffff", 0.04)} 22%, transparent 46%)`,
+          }}
+        />
+      </div>
+      {/* rim light on the body edge */}
+      {dev.edgeLight > 0.05 && (
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: radius,
-            background: `linear-gradient(120deg, ${withAlpha("#ffffff", dev.glass * 0.28)} 0%, transparent 42%)`,
             pointerEvents: "none",
+            boxShadow: `inset 0 ${Math.max(1, w * 0.0014)}px 0 ${withAlpha("#ffffff", dev.edgeLight * 0.55)}, inset 0 -${Math.max(1, w * 0.0014)}px 0 ${withAlpha("#000000", 0.35)}`,
           }}
         />
       )}
     </div>
   );
 }
+
 
 function Decor({ item, width, height, u, font }: { item: DecorItem; width: number; height: number; u: number; font: string }) {
   const base: CSSProperties = {
