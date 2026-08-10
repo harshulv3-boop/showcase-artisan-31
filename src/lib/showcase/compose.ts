@@ -539,6 +539,10 @@ export function composeVariants(opts: {
       kicker: brand.product,
     };
 
+    // hierarchy pass: nothing is allowed to sit under the copy
+    const laid = text.show ? clearTypeZone(ctx, nodes, text.x, text.y, finalW, blockH) : nodes;
+
+
     const device = {
       ...v.device,
       frame: rnd() < 0.22 ? !v.device.frame : v.device.frame,
