@@ -639,7 +639,7 @@ export function composeVariants(opts: {
 
     return {
       id: `c${i + 1}-${st.name}-${(sig % 9973) + i}`,
-      label: st.name.replace(/-/g, " "),
+      label: plan?.label || st.name.replace(/-/g, " "),
       seed: sig + i,
       arrangement: st.name,
       base,
@@ -652,6 +652,7 @@ export function composeVariants(opts: {
       device,
       tune: { scale: 1, spread: 1, tilt: 1 },
       notes: [
+        ...(plan?.note ? [`AI: ${plan.note}`] : []),
         `${st.name.replace(/-/g, " ")} · focal ${Math.round(v.focal.x * 100)}/${Math.round(v.focal.y * 100)}`,
         `${Math.round(v.negativeSpace * 100)}% air · ${nodes.length} plane${nodes.length > 1 ? "s" : ""} · tilt ${Math.round(v.perspective.tiltY)}°`,
         `type ${text.align}, ${text.upper ? "uppercase" : "sentence"}, ${Math.round(typeScale * 100)}%`,
