@@ -315,7 +315,7 @@ function Studio() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Mood</Label>
-                <Select value={mood} onValueChange={(v) => setMood(v as MoodKey)}>
+                <Select value={mood} onValueChange={(v) => setMood(v as MoodKey)} disabled={matchMode}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MOOD_OPTIONS.map((m) => (
@@ -324,6 +324,7 @@ function Studio() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs">Format</Label>
                 <Select value={ratioKey} onValueChange={(v) => setRatioKey(v as RatioKey)}>
