@@ -381,42 +381,51 @@ function buildBackground(dir: ArtDirection, rnd: () => number, variant: number) 
 /* ---------------- occupancy-aware type placement ---------------- */
 
 function placeText(ctx: Ctx, nodes: SceneNode[], desiredW: number, desiredH: number) {
-  const CX = 18;
-  const CY = 12;
+  const CX = 24;
+  const CY = 16;
   const grid = new Float32Array(CX * CY);
+  const padX = 0.03;
+  const padY = 0.03;
   for (const n of nodes) {
     const h = nodeH(ctx, n);
-    const x0 = n.x - n.w / 2;
-    const x1 = n.x + n.w / 2;
-    const y0 = n.y - h / 2;
-    const y1 = n.y + h / 2;
+    const x0 = n.x - n.w / 2 - padX;
+    const x1 = n.x + n.w / 2 + padX;
+    const y0 = n.y - h / 2 - padY;
+    const y1 = n.y + h / 2 + padY;
     for (let cy = 0; cy < CY; cy++) {
       for (let cx = 0; cx < CX; cx++) {
         const px = (cx + 0.5) / CX;
         const py = (cy + 0.5) / CY;
-        if (px > x0 - 0.02 && px < x1 + 0.02 && py > y0 - 0.02 && py < y1 + 0.02) grid[cy * CX + cx] = 1;
+        if (px > x0 && px < x1 && py > y0 && py < y1) grid[cy * CX + cx] = 1;
       }
     }
   }
-  const bw = Math.max(1, Math.round(desiredW * CX));
-  const bh = Math.max(1, Math.round(desiredH * CY));
-  let best = { x: ctx.dir.spacing.margin, y: ctx.dir.spacing.margin, score: -1 };
-  for (let cy = 0; cy + bh <= CY; cy++) {
-    for (let cx = 0; cx + bw <= CX; cx++) {
-      let free = 0;
-      for (let y = cy; y < cy + bh; y++) for (let x = cx; x < cx + bw; x++) free += grid[y * CX + x] ? 0 : 1;
-      const ratio = free / (bw * bh);
-      if (ratio < 0.92) continue;
-      const px = (cx + bw / 2) / CX;
-      const py = (cy + bh / 2) / CY;
-      const dist = Math.hypot(px - ctx.dir.focal.x, py - ctx.dir.focal.y);
-      const edgePull = 1 - Math.min(px, 1 - px, py, 1 - py);
-      const score = ratio * 2 + dist * 1.2 - edgePull * 0.5;
-      if (score > best.score) best = { x: cx / CX, y: cy / CY, score };
+
+  // try the requested block, then progressively tighter ones, before giving up
+  for (const [shrink, need] of [[1, 1], [0.85, 1], [0.7, 0.97], [0.55, 0.92]] as const) {
+    const bw = Math.max(1, Math.round(desiredW * shrink * CX));
+    const bh = Math.max(1, Math.round(desiredH * shrink * CY));
+    let best = { x: -1, y: -1, w: desiredW * shrink, score: -1 };
+    for (let cy = 0; cy + bh <= CY; cy++) {
+      for (let cx = 0; cx + bw <= CX; cx++) {
+        let free = 0;
+        for (let y = cy; y < cy + bh; y++) for (let x = cx; x < cx + bw; x++) free += grid[y * CX + x] ? 0 : 1;
+        const ratio = free / (bw * bh);
+        if (ratio < need) continue;
+        const px = (cx + bw / 2) / CX;
+        const py = (cy + bh / 2) / CY;
+        const dist = Math.hypot(px - ctx.dir.focal.x, py - ctx.dir.focal.y);
+        const edgePull = 1 - Math.min(px, 1 - px, py, 1 - py);
+        const score = ratio * 2 + dist * 1.1 - edgePull * 0.8;
+        if (score > best.score) best = { x: cx / CX, y: cy / CY, w: bw / CX, score };
+      }
     }
+    if (best.score >= 0) return best;
   }
-  return best;
+  // last resort: the emptiest corner
+  return { x: ctx.dir.focal.x > 0.5 ? 0.04 : 0.55, y: 0.05, w: desiredW * 0.55, score: 0 };
 }
+
 
 /* ---------------- decorative language ---------------- */
 
