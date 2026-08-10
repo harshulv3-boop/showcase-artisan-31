@@ -463,10 +463,10 @@ function stageNodes(ctx: Ctx, nodes: SceneNode[], stage: Zone["stage"]): SceneNo
     const w = w0 * k;
     const h = h0 * k;
     // a plane may hang off a canvas edge, never into the copy column
-    const minX = stage.x0 <= 0 ? stage.x0 - w * 0.3 + w / 2 : stage.x0 + w * 0.42;
-    const maxX = stage.x1 >= 1 ? stage.x1 + w * 0.3 - w / 2 : stage.x1 - w * 0.42;
-    const minY = stage.y0 <= 0 ? stage.y0 + h * 0.24 : stage.y0 + h * 0.46;
-    const maxY = stage.y1 >= 1 ? stage.y1 - h * 0.24 : stage.y1 - h * 0.46;
+    const minX = stage.x0 + w * (stage.x0 <= 0 ? 0.3 : 0.44);
+    const maxX = stage.x1 - w * (stage.x1 >= 1 ? 0.3 : 0.44);
+    const minY = stage.y0 + h * (stage.y0 <= 0 ? 0.36 : 0.48);
+    const maxY = stage.y1 - h * (stage.y1 >= 1 ? 0.36 : 0.48);
     const px = stage.x0 + n.x * sw;
     const py = stage.y0 + n.y * sh;
     return {
