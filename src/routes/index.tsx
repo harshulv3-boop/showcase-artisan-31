@@ -19,6 +19,7 @@ import {
   MOOD_OPTIONS,
   RATIO_OPTIONS,
   buildShowcasePrompt,
+  buildMatchPrompt,
   type MoodKey,
   type RatioKey,
 } from "@/lib/showcase/imagePrompt";
