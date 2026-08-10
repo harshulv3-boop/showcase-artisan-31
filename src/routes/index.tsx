@@ -288,10 +288,28 @@ function Studio() {
             }
           >
             <Thumbs items={refs} onRemove={(id) => setRefs((r) => r.filter((x) => x.id !== id))} />
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <input
+                type="checkbox"
+                checked={matchMode}
+                onChange={(e) => setMatchMode(e.target.checked)}
+                className="mt-0.5 size-3.5 accent-current text-primary"
+              />
+              <span className="space-y-1">
+                <span className="block text-xs font-medium">Reference Match Mode</span>
+                <span className="block text-xs text-muted-foreground">
+                  1 near-exact clone of the reference + 3 closely inspired variations. Overrides mood and
+                  variation count.
+                </span>
+              </span>
+            </label>
             <p className="text-xs text-muted-foreground">
-              References guide composition, framing and lighting — never copied literally.
+              {matchMode
+                ? "Composition, device placement, scale, spacing and taste are copied from the reference."
+                : "References guide composition, framing and lighting — never copied literally."}
             </p>
           </Section>
+
 
           <Section title="Look">
             <div className="space-y-3">
