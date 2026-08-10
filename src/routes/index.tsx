@@ -132,13 +132,18 @@ function Studio() {
   const [history, setHistory] = useState<Composition[][]>([]);
   const [future, setFuture] = useState<Composition[][]>([]);
   const [busy, setBusy] = useState(false);
+  const [aiPlan, setAiPlan] = useState<AiPlan | null>(null);
   const saltRef = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const ratio = RATIOS.find((r) => r.key === ratioKey) ?? RATIOS[0]!;
   const current = comps.find((c) => c.id === editing) ?? null;
 
-  const direction = useMemo(() => deriveDirection(refs, brand, mood), [refs, brand, mood]);
+  const baseDirection = useMemo(() => deriveDirection(refs, brand, mood), [refs, brand, mood]);
+  const direction = useMemo(
+    () => applyAiDirection(baseDirection, aiPlan?.direction),
+    [baseDirection, aiPlan],
+  );
 
   const commit = useCallback(
     (next: Composition[]) => {
