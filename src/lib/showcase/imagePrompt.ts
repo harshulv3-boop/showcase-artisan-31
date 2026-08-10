@@ -99,3 +99,44 @@ export function buildShowcasePrompt(opts: {
     .filter(Boolean)
     .join("\n\n");
 }
+
+const MATCH_VARIATIONS = [
+  "This is the EXACT MATCH render. Reproduce the reference composition 1:1 — identical camera angle, device count, device sizes and positions, crop, margins, text block placement, background treatment, lighting direction and shadow behaviour. The ONLY thing that changes is the UI shown on the screens (use the attached product screenshots) and the wording of the copy. Do not restyle, re-balance or 'improve' anything.",
+  "Stay 90% faithful to the reference composition, but shift the camera slightly: a small change of angle/tilt and a marginally tighter crop. Device count, placement logic, hierarchy, palette and lighting stay the same.",
+  "Stay 90% faithful to the reference, but vary the depth and layering: nudge secondary screens to a different depth/offset and adjust the shadow spread. Overall framing, scale relationships, palette and typographic placement stay the same.",
+  "Stay 90% faithful to the reference, but vary the background environment subtly: same palette family and lighting mood, slightly different gradient flow / abstract elements. Device placement, scale and hierarchy remain the reference's.",
+];
+
+export function buildMatchPrompt(opts: {
+  index: number;
+  ratio: { ratio: string; px: string };
+  headline?: string | undefined;
+  sub?: string | undefined;
+  product?: string | undefined;
+  screenCount: number;
+  refCount: number;
+  extra?: string | undefined;
+}) {
+  const variation = MATCH_VARIATIONS[opts.index % MATCH_VARIATIONS.length]!;
+  return [
+    `REFERENCE MATCH MODE. Create a premium product showcase image that replicates the attached STYLE REFERENCE as faithfully as possible. Aspect ratio ${opts.ratio.ratio} (${opts.ratio.px}).`,
+    opts.screenCount > 0
+      ? `The first ${opts.screenCount} attached image(s) are the product UI screenshots. Render them EXACTLY as given — pixel-faithful, undistorted, legible, correct colors, no invented UI, no fake text.`
+      : "Invent a plausible modern product UI.",
+    opts.refCount > 0
+      ? `The final ${opts.refCount} attached image(s) are THE REFERENCE. Match them: composition, device/mockup placement and scale, perspective and camera angle, cropping, spacing and margins, visual hierarchy, background and environment, lighting and shadows, colour palette, typographic style and placement. Fidelity to the reference outranks every other instruction — never fall back to a default centered layout.`
+      : "No reference attached — fall back to a premium asymmetric showcase composition.",
+    `VARIATION BRIEF: ${variation}`,
+    opts.headline
+      ? `Typography: headline "${opts.headline}"${opts.sub ? ` with supporting line "${opts.sub}"` : ""}, set in the same type style, weight, size relationship and position as the reference's text, spelled exactly as written.`
+      : "Only include text if the reference has text; otherwise none.",
+    opts.product ? `Brand/product name: ${opts.product}.` : "",
+    "Quality bar: photoreal device mockups with accurate bezels, glass reflections and rim light; realistic contact and cast shadows; believable depth-of-field; studio-grade background matching the reference.",
+    "Avoid: default centered placement, flat pasted screenshot, clip-art icons, watermarks, gibberish text, design-tool UI chrome, low resolution.",
+    opts.extra ? `Additional direction: ${opts.extra}` : "",
+    "Output one finished, polished marketing image.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
