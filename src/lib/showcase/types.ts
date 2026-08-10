@@ -61,7 +61,7 @@ export type Brand = {
   logo: string | null;
   primary: string;
   accent: string;
-  font: FontKey;
+  font: FontKey | "auto";
 };
 
 export type OutputType =
@@ -173,7 +173,7 @@ export type TextBlock = {
   y: number;
   w: number;
   align: "left" | "center" | "right";
-  font: FontKey;
+  font: FontKey | "auto";
   scale: number;
   tracking: number;
   weight: number;

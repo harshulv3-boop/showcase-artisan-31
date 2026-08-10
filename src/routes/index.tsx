@@ -118,7 +118,7 @@ function Studio() {
     logo: null,
     primary: "#ffffff",
     accent: "",
-    font: "grotesk",
+    font: "auto",
   });
   const [comps, setComps] = useState<Composition[]>([]);
   const [editing, setEditing] = useState<string | null>(null);

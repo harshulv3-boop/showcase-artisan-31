@@ -101,7 +101,7 @@ export function deriveDirection(refs: Reference[], brand: Brand, mood: PresetKey
   const perspectiveEnergy = clamp((1 - symmetry) * 0.7 + spread * 0.5);
 
   const font: FontKey =
-    brand.font ??
+    (brand.font !== "auto" ? brand.font : null) ??
     (edge > 0.55 && sat < 0.3 ? "mono" : contrast > 0.26 && sat < 0.22 ? "serif" : sat > 0.4 ? "grotesk" : "sans");
 
   return {
@@ -177,7 +177,7 @@ function synthetic(m: (typeof MOODS)[number], brand: Brand): ArtDirection {
     lighting: { angle: 115, intensity: dark ? 0.8 : 0.4, falloff: dark ? 0.7 : 0.3 },
     spacing: { margin: mix(0.05, 0.12, m.air), gutter: mix(0.02, 0.05, m.air) },
     typography: {
-      font: brand.font ?? m.font,
+      font: brand.font !== "auto" ? brand.font : m.font,
       scaleRatio: m.typeScale,
       tracking: m.font === "mono" ? 0.06 : -0.02,
       weight: 600,
