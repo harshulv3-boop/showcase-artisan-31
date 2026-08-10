@@ -658,7 +658,7 @@ export function composeVariants(opts: {
       notes: [
         ...(plan?.note ? [`AI: ${plan.note}`] : []),
         `${st.name.replace(/-/g, " ")} · focal ${Math.round(v.focal.x * 100)}/${Math.round(v.focal.y * 100)}`,
-        `${Math.round(v.negativeSpace * 100)}% air · ${nodes.length} plane${nodes.length > 1 ? "s" : ""} · tilt ${Math.round(v.perspective.tiltY)}°`,
+        `${Math.round(v.negativeSpace * 100)}% air · ${laid.length} plane${laid.length > 1 ? "s" : ""} · tilt ${Math.round(v.perspective.tiltY)}°`,
         `type ${text.align}, ${text.upper ? "uppercase" : "sentence"}, ${Math.round(typeScale * 100)}%`,
       ],
     } satisfies Composition;
