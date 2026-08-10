@@ -634,12 +634,13 @@ export function composeVariants(opts: {
 
     const device = {
       ...v.device,
-      frame: rnd() < 0.22 ? !v.device.frame : v.device.frame,
-      radius: clamp(v.device.radius * mix(0.6, 1.5, rnd()), 0, 40),
-      shadow: clamp(v.device.shadow * mix(0.6, 1.4, rnd()), 0, 1.3),
-      edgeLight: clamp(v.device.edgeLight * mix(0.4, 1.4, rnd())),
-      glass: clamp(v.device.glass * mix(0.3, 1.4, rnd())),
+      frame: true,
+      radius: clamp(v.device.radius * mix(0.8, 1.4, rnd()), 8, 40),
+      shadow: clamp(0.55 + v.device.shadow * mix(0.5, 0.9, rnd()), 0.4, 1.3),
+      edgeLight: clamp(0.25 + v.device.edgeLight * mix(0.4, 1.2, rnd())),
+      glass: clamp(v.device.glass * mix(0.3, 1.2, rnd())),
     };
+
 
     return {
       id: `c${i + 1}-${st.name}-${(sig % 9973) + i}`,
