@@ -313,7 +313,7 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
                 style={{
                   position: "absolute",
                   zIndex: Math.max(0, Math.round(n.z) - 1),
-                  left: px + Math.cos((comp.text ? 0 : 0) + Math.PI / 2) * 0,
+                  left: px,
                   top: py + ph * 0.42,
                   width: pw * 1.05,
                   height: ph * 0.34,
