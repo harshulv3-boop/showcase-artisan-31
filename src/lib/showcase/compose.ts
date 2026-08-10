@@ -518,15 +518,19 @@ export function composeVariants(opts: {
     const blockW = clamp(mix(0.26, 0.52, rnd()) * (align === "center" ? 1.4 : 1), 0.22, 0.72);
     const blockH = clamp(0.16 + typeScale * 0.12, 0.14, 0.42);
     const spot = placeText(ctx, nodes, blockW, blockH);
+    const finalW = Math.max(0.18, spot.w);
+    // narrow blocks get proportionally smaller type so copy never overruns
+    const fittedScale = typeScale * clamp(0.55 + finalW * 1.2, 0.6, 1.15);
 
     const text = {
       show: Boolean(brand.headline || brand.sub || brand.product),
-      x: clamp(spot.x + v.spacing.margin * 0.4, 0.03, 0.94),
-      y: clamp(spot.y + v.spacing.margin * 0.4, 0.03, 0.9),
-      w: blockW,
+      x: clamp(spot.x + v.spacing.margin * 0.3, 0.03, 1 - finalW - 0.03),
+      y: clamp(spot.y + v.spacing.margin * 0.3, 0.03, 0.9),
+      w: finalW,
       align,
       font: v.typography.font,
-      scale: typeScale,
+      scale: fittedScale,
+
       tracking: v.typography.tracking + (rnd() - 0.5) * 0.03,
       weight: rnd() < 0.3 ? 400 : v.typography.weight,
       upper: rnd() < 0.3 ? !v.typography.upper : v.typography.upper,
