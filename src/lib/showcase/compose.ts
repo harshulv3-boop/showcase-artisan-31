@@ -427,6 +427,44 @@ function placeText(ctx: Ctx, nodes: SceneNode[], desiredW: number, desiredH: num
 }
 
 
+/** Pushes any plane out of the reserved copy area so hierarchy always reads. */
+function clearTypeZone(ctx: Ctx, nodes: SceneNode[], tx: number, ty: number, tw: number, th: number) {
+  const pad = 0.025;
+  const rx0 = tx - pad;
+  const rx1 = tx + tw + pad;
+  const ry0 = ty - pad;
+  const ry1 = ty + th + pad;
+  return nodes.map((n) => {
+    const h = nodeH(ctx, n);
+    const nx0 = n.x - n.w / 2;
+    const nx1 = n.x + n.w / 2;
+    const ny0 = n.y - h / 2;
+    const ny1 = n.y + h / 2;
+    const ox = Math.min(nx1, rx1) - Math.max(nx0, rx0);
+    const oy = Math.min(ny1, ry1) - Math.max(ny0, ry0);
+    if (ox <= 0 || oy <= 0) return n;
+    const overlapArea = (ox * oy) / Math.max(1e-4, n.w * h);
+    const shrink = clamp(1 - overlapArea * 0.35, 0.72, 1);
+    // move along the cheapest axis
+    const pushRight = rx1 - nx0;
+    const pushLeft = nx1 - rx0;
+    const pushDown = ry1 - ny0;
+    const pushUp = ny1 - ry0;
+    const best = Math.min(pushRight, pushLeft, pushDown, pushUp);
+    let { x, y } = n;
+    if (best === pushRight) x += pushRight;
+    else if (best === pushLeft) x -= pushLeft;
+    else if (best === pushDown) y += pushDown;
+    else y -= pushUp;
+    return {
+      ...n,
+      x: clamp(x, -0.12, 1.12),
+      y: clamp(y, -0.06, 1.06),
+      w: n.w * shrink,
+    };
+  });
+}
+
 /* ---------------- decorative language ---------------- */
 
 function buildDecor(dir: ArtDirection, rnd: () => number, brand: Brand, textY: number): DecorItem[] {
@@ -561,7 +599,7 @@ export function composeVariants(opts: {
       layers,
       grain: clamp(0.02 + v.decor.intensity * 0.1 + (v.dark ? 0.03 : 0)),
       vignette: clamp(v.dark ? 0.18 + v.lighting.falloff * 0.4 : v.lighting.falloff * 0.14),
-      nodes,
+      nodes: laid,
       decor: buildDecor(v, rnd, brand, text.y),
       text,
       device,
