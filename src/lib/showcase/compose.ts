@@ -55,8 +55,8 @@ type Ctx = {
 const aspectOf = (s: Screen) => s.width / Math.max(1, s.height);
 
 function node(ctx: Ctx, s: Screen, p: Partial<SceneNode> & { x: number; y: number; w: number }): SceneNode {
-  return {
-    id: `${s.id}-${Math.round(p.x * 1000)}-${Math.round(p.y * 1000)}`,
+  return fitPlane(ctx, {
+    id: `${s.id}-${Math.round(p.x * 1000)}-${Math.round(p.y * 1000)}-${Math.round(p.w * 1000)}`,
     screenId: s.id,
     rotate: 0,
     tiltY: 0,
@@ -67,8 +67,26 @@ function node(ctx: Ctx, s: Screen, p: Partial<SceneNode> & { x: number; y: numbe
     frame: ctx.dir.device.frame,
     crop: null,
     ...p,
-  };
+  });
 }
+
+/** Long-scroll captures are cropped to a device-shaped window and no plane is
+ *  ever allowed to exceed the canvas — this is what kills the "tall strip" look. */
+function fitPlane(ctx: Ctx, n: SceneNode): SceneNode {
+  const s = ctx.screens.find((x) => x.id === n.screenId);
+  if (!s) return n;
+  const out = { ...n };
+  const natural = aspectOf(s);
+  if (!out.crop && natural < 0.46) {
+    out.crop = { scale: 1, ox: 0.5, oy: 0, ratio: s.kind === "mobile" ? 0.485 : 1.5 };
+  }
+  const ar = out.crop ? out.crop.ratio : natural;
+  out.w = Math.min(out.w, ar < 0.8 ? 0.34 : 1.05);
+  const h = (out.w / ar) / ctx.ratio;
+  if (h > 0.88) out.w *= 0.88 / h;
+  return out;
+}
+
 
 /** height of a node as a fraction of canvas height */
 function nodeH(ctx: Ctx, n: SceneNode) {
@@ -293,66 +311,81 @@ function buildBackground(dir: ArtDirection, rnd: () => number, variant: number) 
   const p = dir.palette;
   const darkest = p[0] ?? "#0b0d12";
   const lightest = p[p.length - 1] ?? "#f4f5f7";
-  const base = dir.dark ? shift(darkest, -0.02) : shift(lightest, 0.02);
+  const base = dir.dark ? shift(darkest, -0.015) : shift(lightest, 0.012);
   const accent = dir.accent;
   const mid = p[Math.floor(p.length / 2)] ?? accent;
+  const deep = shift(base, dir.dark ? -0.05 : -0.09);
   const layers: BgLayer[] = [];
   const angle = ((dir.lighting.angle % 360) + 360) % 360;
 
-  // core field — recipe varies per variant so no two share a backdrop
+  // studio field: sweep, duotone diagonal, spotlight cyclorama, horizon backdrop
   const recipe = variant % 4;
-  if (recipe === 0) {
-    layers.push({ t: "linear", from: base, to: shift(base, dir.dark ? 0.06 : -0.05), angle });
-  } else if (recipe === 1) {
-    layers.push({ t: "linear", from: shift(base, dir.dark ? -0.03 : 0.03), to: mid, angle: (angle + 90) % 360 });
-  } else if (recipe === 2) {
-    layers.push({ t: "conic", from: base, to: mid, x: dir.focal.x, y: dir.focal.y, opacity: 0.55 });
-  } else {
-    layers.push({ t: "linear", from: base, to: base, angle });
+  layers.push({
+    t: "linear",
+    from: dir.dark ? deep : shift(base, 0.035),
+    to: dir.dark ? shift(base, 0.05) : deep,
+    angle: recipe === 1 ? (angle + 120) % 360 : recipe === 3 ? 180 : angle,
+  });
+  if (recipe === 2) {
+    layers.push({ t: "conic", from: base, to: shift(mid, dir.dark ? -0.1 : 0.12), x: dir.focal.x, y: dir.focal.y, opacity: 0.28 });
+  }
+  if (recipe === 3) {
+    // horizon / floor line — gives the scene a room to sit in
     layers.push({
       t: "band",
-      color: mid,
+      color: shift(mid, dir.dark ? -0.06 : 0.1),
       x: 0.5,
-      y: rnd(),
-      w: 1.6,
-      h: mix(0.18, 0.55, rnd()),
-      angle: mix(-20, 20, rnd()),
-      opacity: 0.5,
+      y: mix(0.68, 0.84, rnd()),
+      w: 2.2,
+      h: mix(0.55, 0.95, rnd()),
+      angle: 0,
+      opacity: dir.dark ? 0.4 : 0.3,
     });
   }
 
-  // key light
-  const lx = 0.5 + Math.cos((angle * Math.PI) / 180) * 0.42;
-  const ly = 0.5 - Math.sin((angle * Math.PI) / 180) * 0.42;
+  // atmospheric colour drawn from the product palette
   layers.push({
-    t: "radial",
-    color: dir.dark ? accent : shift(accent, 0.25),
-    x: lx,
-    y: ly,
-    r: mix(0.4, 0.95, dir.lighting.falloff),
-    blur: mix(30, 140, dir.lighting.falloff),
-    opacity: clamp(dir.lighting.intensity * (dir.dark ? 0.55 : 0.28)),
+    t: "blob",
+    color: mid,
+    x: clamp(1 - dir.focal.x + (rnd() - 0.5) * 0.18, 0.1, 0.9),
+    y: clamp(1 - dir.focal.y + (rnd() - 0.5) * 0.18, 0.1, 0.9),
+    w: mix(0.8, 1.4, rnd()),
+    h: mix(0.6, 1.15, rnd()),
+    blur: mix(140, 280, rnd()),
+    opacity: dir.dark ? 0.42 : 0.26,
+    rotate: rnd() * 180,
+  });
+  layers.push({
+    t: "blob",
+    color: accent,
+    x: clamp(dir.focal.x + (rnd() - 0.5) * 0.5, 0.05, 0.95),
+    y: clamp(dir.focal.y + (rnd() - 0.5) * 0.5, 0.05, 0.95),
+    w: mix(0.35, 0.8, rnd()),
+    h: mix(0.3, 0.7, rnd()),
+    blur: mix(160, 320, rnd()),
+    opacity: dir.dark ? 0.3 : 0.16,
+    rotate: rnd() * 180,
   });
 
-  if (dir.device.glass > 0.35) {
-    layers.push({
-      t: "blob",
-      color: mid,
-      x: clamp(1 - dir.focal.x + (rnd() - 0.5) * 0.2, 0.05, 0.95),
-      y: clamp(1 - dir.focal.y + (rnd() - 0.5) * 0.2, 0.05, 0.95),
-      w: mix(0.4, 0.9, rnd()),
-      h: mix(0.3, 0.8, rnd()),
-      blur: mix(60, 180, rnd()),
-      opacity: clamp(dir.device.glass * 0.55),
-      rotate: rnd() * 180,
-    });
-  }
+  // key light
+  const lx = 0.5 + Math.cos((angle * Math.PI) / 180) * 0.4;
+  const ly = 0.5 - Math.sin((angle * Math.PI) / 180) * 0.4;
+  layers.push({
+    t: "radial",
+    color: dir.dark ? shift(accent, 0.1) : "#ffffff",
+    x: lx,
+    y: ly,
+    r: mix(0.55, 1, dir.lighting.falloff),
+    blur: mix(40, 120, dir.lighting.falloff),
+    opacity: clamp(dir.lighting.intensity * (dir.dark ? 0.5 : 0.5)),
+  });
+
   if (dir.decor.dots || dir.decor.rules) {
     layers.push({
       t: "grid",
       color: dir.ink,
-      size: Math.round(mix(38, 120, dir.negativeSpace)),
-      opacity: clamp(dir.decor.intensity * 0.16),
+      size: Math.round(mix(48, 140, dir.negativeSpace)),
+      opacity: clamp(dir.decor.intensity * 0.07),
     });
   }
   if (dir.decor.arcs) {
@@ -361,110 +394,80 @@ function buildBackground(dir: ArtDirection, rnd: () => number, variant: number) 
       color: accent,
       x: dir.focal.x,
       y: dir.focal.y,
-      r: mix(0.35, 0.75, rnd()),
-      thickness: mix(1, 6, rnd()),
-      opacity: clamp(dir.decor.intensity * 0.5),
-    });
-  }
-  if (dir.decor.blocks && variant % 2 === 0) {
-    layers.push({
-      t: "stripes",
-      color: accent,
-      size: Math.round(mix(10, 40, rnd())),
-      angle: Math.round(mix(0, 180, rnd())),
-      opacity: clamp(dir.decor.intensity * 0.1),
+      r: mix(0.4, 0.8, rnd()),
+      thickness: mix(1, 3, rnd()),
+      opacity: clamp(dir.decor.intensity * 0.28),
     });
   }
 
   return { base, layers };
 }
 
+
 /* ---------------- occupancy-aware type placement ---------------- */
 
-function placeText(ctx: Ctx, nodes: SceneNode[], desiredW: number, desiredH: number) {
-  const CX = 24;
-  const CY = 16;
-  const grid = new Float32Array(CX * CY);
-  const padX = 0.03;
-  const padY = 0.03;
-  for (const n of nodes) {
-    const h = nodeH(ctx, n);
-    const x0 = n.x - n.w / 2 - padX;
-    const x1 = n.x + n.w / 2 + padX;
-    const y0 = n.y - h / 2 - padY;
-    const y1 = n.y + h / 2 + padY;
-    for (let cy = 0; cy < CY; cy++) {
-      for (let cx = 0; cx < CX; cx++) {
-        const px = (cx + 0.5) / CX;
-        const py = (cy + 0.5) / CY;
-        if (px > x0 && px < x1 && py > y0 && py < y1) grid[cy * CX + cx] = 1;
-      }
-    }
-  }
+/* ---------------- art-directed type zones + staging ----------------
+   Copy gets its own reserved region and the devices are staged into what is
+   left, so hierarchy is decided up front instead of patched afterwards.     */
 
-  // try the requested block, then progressively tighter ones, before giving up
-  for (const [shrink, need] of [[1, 1], [0.85, 1], [0.7, 0.97], [0.55, 0.92]] as const) {
-    const bw = Math.max(1, Math.round(desiredW * shrink * CX));
-    const bh = Math.max(1, Math.round(desiredH * shrink * CY));
-    let best = { x: -1, y: -1, w: desiredW * shrink, score: -1 };
-    for (let cy = 0; cy + bh <= CY; cy++) {
-      for (let cx = 0; cx + bw <= CX; cx++) {
-        let free = 0;
-        for (let y = cy; y < cy + bh; y++) for (let x = cx; x < cx + bw; x++) free += grid[y * CX + x] ? 0 : 1;
-        const ratio = free / (bw * bh);
-        if (ratio < need) continue;
-        const px = (cx + bw / 2) / CX;
-        const py = (cy + bh / 2) / CY;
-        const dist = Math.hypot(px - ctx.dir.focal.x, py - ctx.dir.focal.y);
-        const edgePull = 1 - Math.min(px, 1 - px, py, 1 - py);
-        const score = ratio * 2 + dist * 1.1 - edgePull * 0.8;
-        if (score > best.score) best = { x: cx / CX, y: cy / CY, w: bw / CX, score };
-      }
-    }
-    if (best.score >= 0) return best;
-  }
-  // last resort: the emptiest corner
-  return { x: ctx.dir.focal.x > 0.5 ? 0.04 : 0.55, y: 0.05, w: desiredW * 0.55, score: 0 };
+type Zone = {
+  name: string;
+  text: { x: number; w: number; align: "left" | "center" | "right"; anchor: "top" | "middle" | "bottom" } | null;
+  stage: { x0: number; x1: number; y0: number; y1: number };
+};
+
+function typeZones(m: number): Zone[] {
+  return [
+    {
+      name: "left-rail",
+      text: { x: m, w: 0.34, align: "left", anchor: "middle" },
+      stage: { x0: 0.44, x1: 1.08, y0: -0.04, y1: 1.04 },
+    },
+    {
+      name: "right-rail",
+      text: { x: 1 - m - 0.34, w: 0.34, align: "right", anchor: "middle" },
+      stage: { x0: -0.08, x1: 0.56, y0: -0.04, y1: 1.04 },
+    },
+    {
+      name: "editorial-top",
+      text: { x: 0.16, w: 0.68, align: "center", anchor: "top" },
+      stage: { x0: -0.02, x1: 1.02, y0: 0.34, y1: 1.1 },
+    },
+    {
+      name: "caption-base",
+      text: { x: m, w: 0.52, align: "left", anchor: "bottom" },
+      stage: { x0: -0.02, x1: 1.06, y0: -0.08, y1: 0.66 },
+    },
+    {
+      name: "corner-note",
+      text: { x: m, w: 0.3, align: "left", anchor: "top" },
+      stage: { x0: 0.26, x1: 1.08, y0: 0.12, y1: 1.06 },
+    },
+    {
+      name: "full-bleed",
+      text: null,
+      stage: { x0: -0.08, x1: 1.08, y0: -0.06, y1: 1.06 },
+    },
+  ];
 }
 
-
-/** Pushes any plane out of the reserved copy area so hierarchy always reads. */
-function clearTypeZone(ctx: Ctx, nodes: SceneNode[], tx: number, ty: number, tw: number, th: number) {
-  const pad = 0.025;
-  const rx0 = tx - pad;
-  const rx1 = tx + tw + pad;
-  const ry0 = ty - pad;
-  const ry1 = ty + th + pad;
+/** Maps a strategy's 0–1 field into the staging rectangle left by the copy. */
+function stageNodes(ctx: Ctx, nodes: SceneNode[], stage: Zone["stage"]): SceneNode[] {
+  const sw = stage.x1 - stage.x0;
+  const sh = stage.y1 - stage.y0;
   return nodes.map((n) => {
-    const h = nodeH(ctx, n);
-    const nx0 = n.x - n.w / 2;
-    const nx1 = n.x + n.w / 2;
-    const ny0 = n.y - h / 2;
-    const ny1 = n.y + h / 2;
-    const ox = Math.min(nx1, rx1) - Math.max(nx0, rx0);
-    const oy = Math.min(ny1, ry1) - Math.max(ny0, ry0);
-    if (ox <= 0 || oy <= 0) return n;
-    const overlapArea = (ox * oy) / Math.max(1e-4, n.w * h);
-    const shrink = clamp(1 - overlapArea * 0.35, 0.72, 1);
-    // move along the cheapest axis
-    const pushRight = rx1 - nx0;
-    const pushLeft = nx1 - rx0;
-    const pushDown = ry1 - ny0;
-    const pushUp = ny1 - ry0;
-    const best = Math.min(pushRight, pushLeft, pushDown, pushUp);
-    let { x, y } = n;
-    if (best === pushRight) x += pushRight;
-    else if (best === pushLeft) x -= pushLeft;
-    else if (best === pushDown) y += pushDown;
-    else y -= pushUp;
+    const w = n.w * sw;
+    const h = nodeH(ctx, { ...n, w });
+    const k = h > sh * 0.96 ? (sh * 0.96) / h : 1;
     return {
       ...n,
-      x: clamp(x, -0.12, 1.12),
-      y: clamp(y, -0.06, 1.06),
-      w: n.w * shrink,
+      w: w * k,
+      x: stage.x0 + n.x * sw,
+      y: stage.y0 + n.y * sh,
     };
   });
 }
+
 
 /* ---------------- decorative language ---------------- */
 
