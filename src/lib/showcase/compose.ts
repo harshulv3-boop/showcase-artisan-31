@@ -451,22 +451,33 @@ function typeZones(m: number): Zone[] {
   ];
 }
 
-/** Maps a strategy's 0–1 field into the staging rectangle left by the copy. */
+/** Maps a strategy's 0–1 field into the staging rectangle left by the copy,
+ *  keeping every plane on its stage (only canvas edges are allowed to crop). */
 function stageNodes(ctx: Ctx, nodes: SceneNode[], stage: Zone["stage"]): SceneNode[] {
   const sw = stage.x1 - stage.x0;
   const sh = stage.y1 - stage.y0;
   return nodes.map((n) => {
-    const w = n.w * sw;
-    const h = nodeH(ctx, { ...n, w });
-    const k = h > sh * 0.96 ? (sh * 0.96) / h : 1;
+    const w0 = n.w * sw;
+    const h0 = nodeH(ctx, { ...n, w: w0 });
+    const k = h0 > sh * 0.94 ? (sh * 0.94) / h0 : 1;
+    const w = w0 * k;
+    const h = h0 * k;
+    // a plane may hang off a canvas edge, never into the copy column
+    const minX = stage.x0 <= 0 ? stage.x0 - w * 0.3 + w / 2 : stage.x0 + w * 0.42;
+    const maxX = stage.x1 >= 1 ? stage.x1 + w * 0.3 - w / 2 : stage.x1 - w * 0.42;
+    const minY = stage.y0 <= 0 ? stage.y0 + h * 0.24 : stage.y0 + h * 0.46;
+    const maxY = stage.y1 >= 1 ? stage.y1 - h * 0.24 : stage.y1 - h * 0.46;
+    const px = stage.x0 + n.x * sw;
+    const py = stage.y0 + n.y * sh;
     return {
       ...n,
-      w: w * k,
-      x: stage.x0 + n.x * sw,
-      y: stage.y0 + n.y * sh,
+      w,
+      x: minX > maxX ? (stage.x0 + stage.x1) / 2 : Math.min(Math.max(px, minX), maxX),
+      y: minY > maxY ? (stage.y0 + stage.y1) / 2 : Math.min(Math.max(py, minY), maxY),
     };
   });
 }
+
 
 
 /* ---------------- decorative language ---------------- */
