@@ -173,7 +173,7 @@ export type TextBlock = {
   y: number;
   w: number;
   align: "left" | "center" | "right";
-  font: FontKey | "auto";
+  font: FontKey;
   scale: number;
   tracking: number;
   weight: number;
