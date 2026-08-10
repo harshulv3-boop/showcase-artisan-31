@@ -226,6 +226,10 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
   const u = width / 1600;
   const t = comp.tune;
   const font = FONT_STACK[comp.text.font];
+  // headline can never be wider than its block: cap by the longest word
+  const blockPx = comp.text.w * width;
+  const longestWord = Math.max(3, ...(brand.headline || "A").split(/\s+/).map((w) => w.length));
+  const headlineSize = Math.min(74 * u * comp.text.scale, blockPx / (longestWord * 0.56));
 
   return (
     <div style={{ width, height, position: "relative", overflow: "hidden", background: comp.base, fontFamily: font }}>
@@ -298,7 +302,7 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
             <h2
               style={{
                 margin: 0,
-                fontSize: 74 * u * comp.text.scale,
+                fontSize: headlineSize,
                 lineHeight: 0.98,
                 fontWeight: comp.text.weight,
                 letterSpacing: `${comp.text.tracking}em`,
