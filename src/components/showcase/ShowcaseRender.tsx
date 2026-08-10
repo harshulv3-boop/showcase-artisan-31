@@ -300,29 +300,54 @@ export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
         if (!screen) return null;
         const px = (0.5 + (n.x - 0.5) * t.spread) * width;
         const py = (0.5 + (n.y - 0.5) * t.spread) * height;
+        const pw = n.w * t.scale * width;
+        const ar = n.crop ? n.crop.ratio : screen.width / Math.max(1, screen.height);
+        const ph = pw / ar;
+        const shadow = comp.device.shadow;
         return (
-          <div
-            key={n.id}
-            style={{
-              position: "absolute",
-              left: px,
-              top: py,
-              zIndex: Math.round(n.z),
-              opacity: n.opacity,
-              filter: n.blur ? `blur(${n.blur * u}px)` : undefined,
-              perspective: 2200 * u,
-              transformStyle: "preserve-3d",
-            }}
-          >
+          <div key={n.id}>
+            {/* cast contact shadow on the floor, offset by the key light */}
+            {shadow > 0.05 && (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  zIndex: Math.max(0, Math.round(n.z) - 1),
+                  left: px + Math.cos((comp.text ? 0 : 0) + Math.PI / 2) * 0,
+                  top: py + ph * 0.42,
+                  width: pw * 1.05,
+                  height: ph * 0.34,
+                  transform: "translate(-50%, -50%)",
+                  borderRadius: "50%",
+                  background: `radial-gradient(closest-side, rgba(3,6,16,${0.5 * shadow * n.opacity}), transparent 72%)`,
+                  filter: `blur(${pw * 0.05}px)`,
+                  pointerEvents: "none",
+                }}
+              />
+            )}
             <div
               style={{
-                transform: `translate(-50%, -50%) rotate(${n.rotate}deg) rotateY(${n.tiltY * t.tilt}deg) rotateX(${n.tiltX * t.tilt}deg) scale(${t.scale})`,
+                position: "absolute",
+                left: px,
+                top: py,
+                zIndex: Math.round(n.z),
+                opacity: n.opacity,
+                filter: n.blur ? `blur(${n.blur * u}px)` : undefined,
+                perspective: 2400 * u,
+                transformStyle: "preserve-3d",
               }}
             >
-              <Device node={{ ...n, w: n.w * t.scale }} screen={screen} comp={comp} width={width} u={u} />
+              <div
+                style={{
+                  transform: `translate(-50%, -50%) rotate(${n.rotate}deg) rotateY(${n.tiltY * t.tilt}deg) rotateX(${n.tiltX * t.tilt}deg) scale(${t.scale})`,
+                }}
+              >
+                <Device node={{ ...n, w: n.w * t.scale }} screen={screen} comp={comp} width={width} u={u} />
+              </div>
             </div>
           </div>
         );
+
       })}
 
       {comp.text.show && (
