@@ -70,7 +70,7 @@ const SCHEMA = `{
 export async function artDirect(input: AiDirectorInput): Promise<unknown> {
   const key = process.env["SHOWCASE_AI_KEY"];
   const baseUrl = process.env["SHOWCASE_AI_BASE_URL"] ?? "https://api.surplusintelligence.ai/min70/v1";
-  const model = process.env["SHOWCASE_AI_MODEL"] ?? "glm-5.2";
+  const model = "gpt-5.5";
   if (!key) throw new Error("Missing SHOWCASE_AI_KEY");
 
   const user = `REFERENCE SIGNALS (measured from the user's reference images):
@@ -104,11 +104,25 @@ ${SCHEMA}`;
     throw new Error(`AI director ${res.status}: ${body.slice(0, 400)}`);
   }
 
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const json = (await res.json()) as {
+    id?: string;
+    model?: string;
+    choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  };
   const text = json.choices?.[0]?.message?.content ?? "";
   const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start < 0 || end < 0) throw new Error("AI director returned no JSON");
-  return JSON.parse(cleaned.slice(start, end + 1));
+  const parsed = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+  return {
+    ...parsed,
+    meta: {
+      id: json.id ?? "",
+      model: json.model ?? model,
+      tokens: json.usage?.total_tokens ?? 0,
+      at: new Date().toISOString(),
+    },
+  };
 }

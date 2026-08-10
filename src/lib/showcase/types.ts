@@ -227,4 +227,5 @@ export type AiVariantPlan = {
 export type AiPlan = {
   direction?: Partial<ArtDirection> & { typography?: Partial<ArtDirection["typography"]>; device?: Partial<ArtDirection["device"]>; decor?: Partial<ArtDirection["decor"]>; lighting?: Partial<ArtDirection["lighting"]>; perspective?: Partial<ArtDirection["perspective"]>; spacing?: Partial<ArtDirection["spacing"]>; focal?: Partial<ArtDirection["focal"]> };
   variants?: AiVariantPlan[];
+  meta?: { id: string; model: string; tokens: number; at: string };
 };
