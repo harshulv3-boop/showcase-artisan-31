@@ -111,6 +111,7 @@ function Studio() {
   const [extra, setExtra] = useState("");
   const [shots, setShots] = useState<Shot[]>([]);
   const [busy, setBusy] = useState(false);
+  const [matchMode, setMatchMode] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const shuffle = useRef(0);
 
@@ -132,14 +133,23 @@ function Studio() {
       toast.error("Upload at least one product screenshot");
       return;
     }
+    if (matchMode && !refs.length) {
+      toast.error("Reference Match Mode needs at least one reference image");
+      return;
+    }
     setBusy(true);
     shuffle.current += 1;
     const seedShuffle = shuffle.current * 3;
-    const initial: Shot[] = Array.from({ length: count }, (_, i) => ({
+    const total = matchMode ? 4 : count;
+    const initial: Shot[] = Array.from({ length: total }, (_, i) => ({
       id: uid(),
       status: "queued" as const,
       url: null,
-      label: `Variation ${i + 1}`,
+      label: matchMode
+        ? i === 0
+          ? "Exact match"
+          : `Inspired variation ${i}`
+        : `Variation ${i + 1}`,
     }));
     setShots(initial);
 
@@ -148,18 +158,29 @@ function Studio() {
 
     await Promise.all(
       initial.map(async (shot, i) => {
-        const prompt = buildShowcasePrompt({
-          index: i,
-          mood: moodDef,
-          ratio,
-          headline: headline.trim() || undefined,
-          sub: sub.trim() || undefined,
-          product: product.trim() || undefined,
-          screenCount: screenUrls.length,
-          refCount: refUrls.length,
-          extra: extra.trim() || undefined,
-          seedShuffle,
-        });
+        const prompt = matchMode
+          ? buildMatchPrompt({
+              index: i,
+              ratio,
+              headline: headline.trim() || undefined,
+              sub: sub.trim() || undefined,
+              product: product.trim() || undefined,
+              screenCount: screenUrls.length,
+              refCount: refUrls.length,
+              extra: extra.trim() || undefined,
+            })
+          : buildShowcasePrompt({
+              index: i,
+              mood: moodDef,
+              ratio,
+              headline: headline.trim() || undefined,
+              sub: sub.trim() || undefined,
+              product: product.trim() || undefined,
+              screenCount: screenUrls.length,
+              refCount: refUrls.length,
+              extra: extra.trim() || undefined,
+              seedShuffle,
+            });
         try {
           await streamShowcaseImage(
             { prompt, screens: screenUrls, refs: refUrls },
@@ -185,7 +206,8 @@ function Studio() {
       }),
     );
     setBusy(false);
-  }, [screens, refs, count, moodDef, ratio, headline, sub, product, extra]);
+  }, [screens, refs, count, moodDef, ratio, headline, sub, product, extra, matchMode]);
+
 
   function download(url: string, i: number) {
     const a = document.createElement("a");
