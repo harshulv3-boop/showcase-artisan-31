@@ -434,6 +434,15 @@ function Studio() {
                 ))}
               </div>
             </div>
+            {aiPlan?.meta && (
+              <p className="rounded-md border border-primary/30 bg-primary/10 p-2 font-mono text-[10px] leading-relaxed text-foreground/80">
+                Live AI call · model {aiPlan.meta.model} · {aiPlan.meta.tokens} tokens
+                <br />
+                id {aiPlan.meta.id.slice(0, 28)}
+                <br />
+                {new Date(aiPlan.meta.at).toLocaleTimeString()}
+              </p>
+            )}
             {!refs.length && (
               <p className="text-[11px] text-muted-foreground">
                 No references yet — principles come from the fallback mood below. Attach references to art-direct from
