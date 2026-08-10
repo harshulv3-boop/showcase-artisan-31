@@ -338,7 +338,11 @@ function Studio() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Variations</Label>
-                <Select value={String(count)} onValueChange={(v) => setCount(Number(v))}>
+                <Select
+                  value={matchMode ? "4" : String(count)}
+                  onValueChange={(v) => setCount(Number(v))}
+                  disabled={matchMode}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[1, 2, 3, 4, 6].map((n) => (
@@ -347,6 +351,7 @@ function Studio() {
                   </SelectContent>
                 </Select>
               </div>
+
             </div>
           </Section>
 
