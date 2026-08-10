@@ -15,7 +15,7 @@ export async function streamShowcaseImage(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal,
+    signal: signal ?? null,
   });
   if (!res.ok || !res.body) {
     throw new Error(`Generation failed: ${res.status} ${await res.text().catch(() => "")}`);
