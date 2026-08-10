@@ -1,4 +1,5 @@
 import type {
+  AiVariantPlan,
   ArtDirection,
   BgLayer,
   Brand,
