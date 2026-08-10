@@ -19,6 +19,7 @@ import {
   MOOD_OPTIONS,
   RATIO_OPTIONS,
   buildShowcasePrompt,
+  buildMatchPrompt,
   type MoodKey,
   type RatioKey,
 } from "@/lib/showcase/imagePrompt";
@@ -110,6 +111,7 @@ function Studio() {
   const [extra, setExtra] = useState("");
   const [shots, setShots] = useState<Shot[]>([]);
   const [busy, setBusy] = useState(false);
+  const [matchMode, setMatchMode] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const shuffle = useRef(0);
 
@@ -131,14 +133,23 @@ function Studio() {
       toast.error("Upload at least one product screenshot");
       return;
     }
+    if (matchMode && !refs.length) {
+      toast.error("Reference Match Mode needs at least one reference image");
+      return;
+    }
     setBusy(true);
     shuffle.current += 1;
     const seedShuffle = shuffle.current * 3;
-    const initial: Shot[] = Array.from({ length: count }, (_, i) => ({
+    const total = matchMode ? 4 : count;
+    const initial: Shot[] = Array.from({ length: total }, (_, i) => ({
       id: uid(),
       status: "queued" as const,
       url: null,
-      label: `Variation ${i + 1}`,
+      label: matchMode
+        ? i === 0
+          ? "Exact match"
+          : `Inspired variation ${i}`
+        : `Variation ${i + 1}`,
     }));
     setShots(initial);
 
@@ -147,18 +158,29 @@ function Studio() {
 
     await Promise.all(
       initial.map(async (shot, i) => {
-        const prompt = buildShowcasePrompt({
-          index: i,
-          mood: moodDef,
-          ratio,
-          headline: headline.trim() || undefined,
-          sub: sub.trim() || undefined,
-          product: product.trim() || undefined,
-          screenCount: screenUrls.length,
-          refCount: refUrls.length,
-          extra: extra.trim() || undefined,
-          seedShuffle,
-        });
+        const prompt = matchMode
+          ? buildMatchPrompt({
+              index: i,
+              ratio,
+              headline: headline.trim() || undefined,
+              sub: sub.trim() || undefined,
+              product: product.trim() || undefined,
+              screenCount: screenUrls.length,
+              refCount: refUrls.length,
+              extra: extra.trim() || undefined,
+            })
+          : buildShowcasePrompt({
+              index: i,
+              mood: moodDef,
+              ratio,
+              headline: headline.trim() || undefined,
+              sub: sub.trim() || undefined,
+              product: product.trim() || undefined,
+              screenCount: screenUrls.length,
+              refCount: refUrls.length,
+              extra: extra.trim() || undefined,
+              seedShuffle,
+            });
         try {
           await streamShowcaseImage(
             { prompt, screens: screenUrls, refs: refUrls },
@@ -184,7 +206,8 @@ function Studio() {
       }),
     );
     setBusy(false);
-  }, [screens, refs, count, moodDef, ratio, headline, sub, product, extra]);
+  }, [screens, refs, count, moodDef, ratio, headline, sub, product, extra, matchMode]);
+
 
   function download(url: string, i: number) {
     const a = document.createElement("a");
@@ -265,16 +288,34 @@ function Studio() {
             }
           >
             <Thumbs items={refs} onRemove={(id) => setRefs((r) => r.filter((x) => x.id !== id))} />
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <input
+                type="checkbox"
+                checked={matchMode}
+                onChange={(e) => setMatchMode(e.target.checked)}
+                className="mt-0.5 size-3.5 accent-current text-primary"
+              />
+              <span className="space-y-1">
+                <span className="block text-xs font-medium">Reference Match Mode</span>
+                <span className="block text-xs text-muted-foreground">
+                  1 near-exact clone of the reference + 3 closely inspired variations. Overrides mood and
+                  variation count.
+                </span>
+              </span>
+            </label>
             <p className="text-xs text-muted-foreground">
-              References guide composition, framing and lighting — never copied literally.
+              {matchMode
+                ? "Composition, device placement, scale, spacing and taste are copied from the reference."
+                : "References guide composition, framing and lighting — never copied literally."}
             </p>
           </Section>
+
 
           <Section title="Look">
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Mood</Label>
-                <Select value={mood} onValueChange={(v) => setMood(v as MoodKey)}>
+                <Select value={mood} onValueChange={(v) => setMood(v as MoodKey)} disabled={matchMode}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MOOD_OPTIONS.map((m) => (
@@ -283,6 +324,7 @@ function Studio() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs">Format</Label>
                 <Select value={ratioKey} onValueChange={(v) => setRatioKey(v as RatioKey)}>
@@ -296,7 +338,11 @@ function Studio() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Variations</Label>
-                <Select value={String(count)} onValueChange={(v) => setCount(Number(v))}>
+                <Select
+                  value={matchMode ? "4" : String(count)}
+                  onValueChange={(v) => setCount(Number(v))}
+                  disabled={matchMode}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[1, 2, 3, 4, 6].map((n) => (
@@ -305,6 +351,7 @@ function Studio() {
                   </SelectContent>
                 </Select>
               </div>
+
             </div>
           </Section>
 
