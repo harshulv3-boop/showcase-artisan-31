@@ -63,12 +63,12 @@ export function buildShowcasePrompt(opts: {
   index: number;
   mood: { label: string; look: string };
   ratio: { ratio: string; px: string };
-  headline?: string;
-  sub?: string;
-  product?: string;
+  headline?: string | undefined;
+  sub?: string | undefined;
+  product?: string | undefined;
   screenCount: number;
   refCount: number;
-  extra?: string;
+  extra?: string | undefined;
   seedShuffle: number;
 }) {
   const dir = ART_DIRECTIONS[(opts.index + opts.seedShuffle) % ART_DIRECTIONS.length]!;
