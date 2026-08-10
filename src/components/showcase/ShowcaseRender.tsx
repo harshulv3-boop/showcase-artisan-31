@@ -1,540 +1,346 @@
 import type { CSSProperties } from "react";
 import { FONT_STACK } from "@/lib/showcase/engine";
-import type { Brand, Design, Screen } from "@/lib/showcase/types";
+import { withAlpha } from "@/lib/showcase/direction";
+import type { BgLayer, Brand, Composition, DecorItem, SceneNode, Screen } from "@/lib/showcase/types";
 
 type Props = {
-  design: Design;
+  comp: Composition;
   screens: Screen[];
   brand: Brand;
   width: number;
   height: number;
 };
 
-function bgStyle(d: Design): CSSProperties {
-  const { kind, from, to, glow, angle } = d.background;
-  switch (kind) {
-    case "solid":
-      return { background: from };
-    case "gradient":
-      return { background: `linear-gradient(${angle}deg, ${from}, ${to})` };
-    case "mesh":
+function layerStyle(l: BgLayer): CSSProperties {
+  switch (l.t) {
+    case "linear":
+      return { background: `linear-gradient(${l.angle}deg, ${l.from}, ${l.to})` };
+    case "radial":
       return {
-        background: `radial-gradient(60% 60% at 20% 20%, ${glow}cc, transparent 70%), radial-gradient(55% 55% at 85% 25%, ${to}dd, transparent 70%), radial-gradient(70% 70% at 60% 95%, ${from}, transparent 70%), linear-gradient(${angle}deg, ${from}, ${to})`,
+        background: `radial-gradient(circle at ${l.x * 100}% ${l.y * 100}%, ${withAlpha(l.color, l.opacity)} 0%, transparent ${Math.round(l.r * 100)}%)`,
+        filter: `blur(${l.blur * 0.4}px)`,
       };
-    case "radial-glow":
+    case "conic":
       return {
-        background: `radial-gradient(70% 60% at 50% 30%, ${glow}55, transparent 65%), linear-gradient(${angle}deg, ${from}, ${to})`,
-      };
-    case "studio":
-      return {
-        background: `radial-gradient(90% 70% at 50% 110%, ${to}, ${from} 70%)`,
+        background: `conic-gradient(from ${Math.round(l.x * 360)}deg at ${l.x * 100}% ${l.y * 100}%, ${l.from}, ${l.to}, ${l.from})`,
+        opacity: l.opacity,
       };
     case "grid":
       return {
-        background: `linear-gradient(${angle}deg, ${from}, ${to})`,
-        backgroundBlendMode: "normal",
+        backgroundImage: `linear-gradient(${withAlpha(l.color, l.opacity)} 1px, transparent 1px), linear-gradient(90deg, ${withAlpha(l.color, l.opacity)} 1px, transparent 1px)`,
+        backgroundSize: `${l.size}px ${l.size}px`,
       };
-    case "paper":
-      return { background: from };
+    case "stripes":
+      return {
+        backgroundImage: `repeating-linear-gradient(${l.angle}deg, ${withAlpha(l.color, l.opacity)} 0 2px, transparent 2px ${l.size}px)`,
+      };
+    case "blob":
+      return {
+        left: `${(l.x - l.w / 2) * 100}%`,
+        top: `${(l.y - l.h / 2) * 100}%`,
+        width: `${l.w * 100}%`,
+        height: `${l.h * 100}%`,
+        borderRadius: "50%",
+        background: withAlpha(l.color, l.opacity),
+        filter: `blur(${l.blur}px)`,
+        transform: `rotate(${l.rotate}deg)`,
+        inset: "auto",
+      };
+    case "ring":
+      return {
+        left: `${(l.x - l.r) * 100}%`,
+        top: `${(l.y - l.r) * 100}%`,
+        width: `${l.r * 200}%`,
+        height: `${l.r * 200}%`,
+        borderRadius: "50%",
+        border: `${l.thickness}px solid ${withAlpha(l.color, l.opacity)}`,
+        inset: "auto",
+      };
+    case "band":
+      return {
+        left: `${(l.x - l.w / 2) * 100}%`,
+        top: `${(l.y - l.h / 2) * 100}%`,
+        width: `${l.w * 100}%`,
+        height: `${l.h * 100}%`,
+        background: `linear-gradient(90deg, transparent, ${withAlpha(l.color, l.opacity)}, transparent)`,
+        transform: `rotate(${l.angle}deg)`,
+        inset: "auto",
+      };
     default:
-      return { background: from };
+      return {};
   }
 }
 
 function Grain({ amount }: { amount: number }) {
   if (amount <= 0) return null;
   return (
-    <svg
-      aria-hidden
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: amount, mixBlendMode: "overlay" }}
-    >
-      <filter id="grain">
+    <svg aria-hidden style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: amount, mixBlendMode: "overlay" }}>
+      <filter id="sgrain">
         <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" />
       </filter>
-      <rect width="100%" height="100%" filter="url(#grain)" />
+      <rect width="100%" height="100%" filter="url(#sgrain)" />
     </svg>
   );
 }
 
-function Frame({
+function Device({
+  node,
   screen,
-  design,
-  style,
-  crop,
+  comp,
+  width,
+  u,
 }: {
+  node: SceneNode;
   screen: Screen;
-  design: Design;
-  style?: CSSProperties;
-  crop?: boolean;
+  comp: Composition;
+  width: number;
+  u: number;
 }) {
+  const dev = comp.device;
   const isMobile = screen.kind === "mobile";
-  const bezel = design.device.bezel === "dark" ? "#111318" : "#f3f4f7";
-  const bezelEdge = design.device.bezel === "dark" ? "#2c2f38" : "#d7dae2";
-  const pad = design.device.frame ? (isMobile ? 12 : 0) : 0;
-  const radius = isMobile ? design.device.radius * 2.4 : design.device.radius;
-  const shadow = design.device.shadow;
+  const bezelBg = dev.bezel === "dark" ? "#0f1116" : "#f3f4f7";
+  const bezelEdge = dev.bezel === "dark" ? "#2b2f39" : "#d7dae2";
+  const pad = node.frame ? (isMobile ? 10 * u : 0) : 0;
+  const radius = (isMobile ? dev.radius * 2.2 : dev.radius) * u + 4;
+  const w = node.w * width;
 
-  const inner = (
+  const img = (
     <img
       src={screen.url}
       alt={screen.name}
       style={{
         display: "block",
-        width: "100%",
-        height: crop ? "100%" : "auto",
-        objectFit: crop ? "cover" : "contain",
-        objectPosition: "top",
-        borderRadius: design.device.frame ? radius - pad : radius,
+        width: node.crop ? `${node.crop.scale * 100}%` : "100%",
+        height: node.crop ? "auto" : "auto",
+        objectFit: "cover",
+        transform: node.crop ? `translate(${-node.crop.ox * (node.crop.scale - 1) * 100}%, ${-node.crop.oy * (node.crop.scale - 1) * 100}%)` : undefined,
+        borderRadius: node.frame ? Math.max(0, radius - pad) : radius,
       }}
     />
   );
 
   const chrome =
-    design.device.frame && !isMobile ? (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "12px 16px",
-          background: bezel,
-          borderBottom: `1px solid ${bezelEdge}`,
-        }}
-      >
+    node.frame && !isMobile ? (
+      <div style={{ display: "flex", alignItems: "center", gap: 7 * u, padding: `${10 * u}px ${14 * u}px`, background: bezelBg, borderBottom: `1px solid ${bezelEdge}` }}>
         {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
-          <span key={c} style={{ width: 12, height: 12, borderRadius: 99, background: c, display: "block" }} />
+          <span key={c} style={{ width: 10 * u, height: 10 * u, borderRadius: 99, background: c, display: "block" }} />
         ))}
-        <span
-          style={{
-            marginLeft: 12,
-            flex: 1,
-            height: 18,
-            borderRadius: 99,
-            background: design.device.bezel === "dark" ? "#1c1f27" : "#e6e8ee",
-          }}
-        />
+        <span style={{ marginLeft: 10 * u, flex: 1, height: 14 * u, borderRadius: 99, background: dev.bezel === "dark" ? "#1b1f27" : "#e6e8ee" }} />
       </div>
     ) : null;
+
+  const shadow = dev.shadow;
 
   return (
     <div
       style={{
         position: "relative",
         overflow: "hidden",
+        width: w,
         borderRadius: radius,
         padding: pad,
-        background: design.device.frame ? bezel : "transparent",
-        border: design.device.frame ? `1px solid ${bezelEdge}` : "none",
+        background: node.frame ? bezelBg : "transparent",
+        border: node.frame ? `1px solid ${bezelEdge}` : dev.edgeLight > 0.2 ? `1px solid ${withAlpha("#ffffff", dev.edgeLight * 0.3)}` : "none",
         boxShadow: shadow
-          ? `0 ${40 * shadow}px ${90 * shadow}px rgba(3,6,18,${0.45 * shadow}), 0 ${8 * shadow}px ${18 * shadow}px rgba(3,6,18,${0.25 * shadow})`
+          ? `0 ${44 * shadow * u}px ${100 * shadow * u}px rgba(3,6,18,${0.5 * shadow}), 0 ${10 * shadow * u}px ${22 * shadow * u}px rgba(3,6,18,${0.28 * shadow})`
           : "none",
-        ...style,
+        maxHeight: node.crop ? `${(node.w / node.crop.ratio) * width}px` : undefined,
       }}
     >
       {chrome}
-      {design.device.frame && isMobile && (
+      {node.frame && isMobile && (
+        <div style={{ position: "absolute", top: 16 * u, left: "50%", transform: "translateX(-50%)", width: "32%", height: 18 * u, borderRadius: 99, background: dev.bezel === "dark" ? "#05060a" : "#c9ccd6", zIndex: 2 }} />
+      )}
+      {img}
+      {dev.glass > 0.15 && (
         <div
           style={{
             position: "absolute",
-            top: 20,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "34%",
-            height: 22,
-            borderRadius: 99,
-            background: design.device.bezel === "dark" ? "#05060a" : "#c9ccd6",
-            zIndex: 2,
+            inset: 0,
+            borderRadius: radius,
+            background: `linear-gradient(120deg, ${withAlpha("#ffffff", dev.glass * 0.28)} 0%, transparent 42%)`,
+            pointerEvents: "none",
           }}
         />
       )}
-      {inner}
     </div>
   );
 }
 
-function Copy({
-  brand,
-  design,
-  width,
-  align,
-  max,
-}: {
-  brand: Brand;
-  design: Design;
-  width: number;
-  align?: "left" | "center";
-  max?: number;
-}) {
-  if (!design.type.show) return null;
-  const a = align ?? design.type.align;
-  const unit = width / 1600;
-  const s = design.type.size * unit;
+function Decor({ item, width, height, u, font }: { item: DecorItem; width: number; height: number; u: number; font: string }) {
+  const base: CSSProperties = {
+    position: "absolute",
+    left: item.x * width,
+    top: item.y * height,
+    width: item.w * width,
+    height: item.h * height,
+    opacity: item.opacity,
+    transform: `rotate(${item.angle}deg)`,
+  };
+  switch (item.t) {
+    case "rule":
+      return <div style={{ ...base, height: Math.max(2 * u, item.h * height), background: item.color }} />;
+    case "block":
+      return <div style={{ ...base, background: item.color, borderRadius: 2 * u }} />;
+    case "dot-grid":
+      return (
+        <div
+          style={{
+            ...base,
+            backgroundImage: `radial-gradient(${withAlpha(item.color, 0.8)} ${1.6 * u}px, transparent ${1.7 * u}px)`,
+            backgroundSize: `${16 * u}px ${16 * u}px`,
+          }}
+        />
+      );
+    case "arc":
+      return <div style={{ ...base, border: `${2 * u}px solid ${item.color}`, borderRadius: "50%", borderRightColor: "transparent", borderBottomColor: "transparent" }} />;
+    case "badge":
+      return (
+        <div
+          style={{
+            ...base,
+            height: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: `${8 * u}px ${14 * u}px`,
+            border: `${1.5 * u}px solid ${item.color}`,
+            color: item.color,
+            borderRadius: 99,
+            fontFamily: font,
+            fontSize: 16 * u,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item.text}
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
+export function ShowcaseRender({ comp, screens, brand, width, height }: Props) {
+  const u = width / 1600;
+  const t = comp.tune;
+  const font = FONT_STACK[comp.text.font];
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 16 * s,
-        alignItems: a === "center" ? "center" : "flex-start",
-        textAlign: a,
-        maxWidth: max ?? width * 0.55,
-        fontFamily: FONT_STACK[design.type.font],
-        color: design.type.color,
-      }}
-    >
-      {(brand.logo || brand.product) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12 * s }}>
-          {brand.logo && (
-            <img src={brand.logo} alt="" style={{ height: 40 * s, width: "auto", objectFit: "contain" }} />
-          )}
-          {brand.product && (
-            <span
+    <div style={{ width, height, position: "relative", overflow: "hidden", background: comp.base, fontFamily: font }}>
+      {comp.layers.map((l, i) => (
+        <div key={i} style={{ position: "absolute", inset: 0, pointerEvents: "none", ...layerStyle(l) }} />
+      ))}
+
+      {comp.decor.map((d, i) => (
+        <Decor key={i} item={d} width={width} height={height} u={u} font={font} />
+      ))}
+
+      {comp.nodes.map((n) => {
+        const screen = screens.find((s) => s.id === n.screenId);
+        if (!screen) return null;
+        const x = comp.text ? 0 : 0;
+        void x;
+        const px = (0.5 + (n.x - 0.5) * t.spread) * width;
+        const py = (0.5 + (n.y - 0.5) * t.spread) * height;
+        return (
+          <div
+            key={n.id}
+            style={{
+              position: "absolute",
+              left: px,
+              top: py,
+              zIndex: Math.round(n.z),
+              opacity: n.opacity,
+              filter: n.blur ? `blur(${n.blur * u}px)` : undefined,
+              perspective: 2200 * u,
+              transformStyle: "preserve-3d",
+            }}
+          >
+            <div
               style={{
-                fontSize: 20 * s,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                opacity: 0.7,
-                fontWeight: 500,
+                transform: `translate(-50%, -50%) rotate(${n.rotate}deg) rotateY(${n.tiltY * t.tilt}deg) rotateX(${n.tiltX * t.tilt}deg) scale(${t.scale})`,
               }}
             >
-              {brand.product}
+              <Device node={{ ...n, w: n.w * t.scale }} screen={screen} comp={comp} width={width} u={u} />
+            </div>
+          </div>
+        );
+      })}
+
+      {comp.text.show && (
+        <div
+          style={{
+            position: "absolute",
+            left: comp.text.x * width,
+            top: comp.text.y * height,
+            width: comp.text.w * width,
+            zIndex: 40,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16 * u * comp.text.scale,
+            alignItems: comp.text.align === "center" ? "center" : comp.text.align === "right" ? "flex-end" : "flex-start",
+            textAlign: comp.text.align,
+            color: comp.text.color,
+            fontFamily: font,
+          }}
+        >
+          {(brand.logo || comp.text.kicker) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 * u }}>
+              {brand.logo && <img src={brand.logo} alt="" style={{ height: 36 * u * comp.text.scale, width: "auto", objectFit: "contain" }} />}
+              {comp.text.kicker && (
+                <span style={{ fontSize: 18 * u * comp.text.scale, letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.72 }}>
+                  {comp.text.kicker}
+                </span>
+              )}
+            </div>
+          )}
+          {brand.headline && (
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 74 * u * comp.text.scale,
+                lineHeight: 0.98,
+                fontWeight: comp.text.weight,
+                letterSpacing: `${comp.text.tracking}em`,
+                textTransform: comp.text.upper ? "uppercase" : "none",
+              }}
+            >
+              {brand.headline}
+            </h2>
+          )}
+          {brand.sub && (
+            <p style={{ margin: 0, fontSize: 24 * u * comp.text.scale, lineHeight: 1.42, opacity: 0.74 }}>{brand.sub}</p>
+          )}
+          {brand.cta && (
+            <span
+              style={{
+                marginTop: 6 * u,
+                display: "inline-block",
+                padding: `${13 * u * comp.text.scale}px ${26 * u * comp.text.scale}px`,
+                borderRadius: 99,
+                background: comp.text.accent,
+                color: "#0b0d12",
+                fontSize: 19 * u * comp.text.scale,
+                fontWeight: 600,
+              }}
+            >
+              {brand.cta}
             </span>
           )}
         </div>
       )}
-      {brand.headline && (
-        <h2
-          style={{
-            fontSize: 78 * s,
-            lineHeight: 0.98,
-            letterSpacing: "-0.03em",
-            fontWeight: design.type.font === "serif" ? 400 : 600,
-            margin: 0,
-          }}
-        >
-          {brand.headline}
-        </h2>
-      )}
-      {brand.sub && (
-        <p style={{ fontSize: 26 * s, lineHeight: 1.4, margin: 0, opacity: 0.72, maxWidth: 640 * s }}>{brand.sub}</p>
-      )}
-      {brand.cta && (
-        <span
-          style={{
-            marginTop: 8 * s,
-            display: "inline-block",
-            padding: `${14 * s}px ${28 * s}px`,
-            borderRadius: 99,
-            background: design.type.accent,
-            color: "#0b0d12",
-            fontSize: 20 * s,
-            fontWeight: 600,
-          }}
-        >
-          {brand.cta}
-        </span>
-      )}
-    </div>
-  );
-}
 
-export function ShowcaseRender({ design, screens, brand, width, height }: Props) {
-  const picked = design.screenIds
-    .map((id) => screens.find((s) => s.id === id))
-    .filter((s): s is Screen => Boolean(s));
-  const hero = picked[0];
-  const u = width / 1600;
-  const pad = 90 * u;
-
-  const body = (() => {
-    if (!hero) return null;
-    switch (design.layout) {
-      case "hero-center":
-        return (
-          <div style={{ position: "absolute", inset: pad, display: "flex", flexDirection: "column", alignItems: "center", gap: 40 * u }}>
-            <Copy brand={brand} design={design} width={width} align="center" max={width * 0.68} />
-            <div style={{ flex: 1, width: "100%", display: "flex", justifyContent: "center", alignItems: "flex-start", overflow: "hidden" }}>
-              <Frame screen={hero} design={design} style={{ width: hero.kind === "mobile" ? "26%" : "82%" }} />
-            </div>
-          </div>
-        );
-      case "angled-hero":
-        return (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center" }}>
-            <div style={{ width: "42%", paddingLeft: pad }}>
-              <Copy brand={brand} design={design} width={width} align="left" max={width * 0.36} />
-            </div>
-            <div style={{ flex: 1, perspective: 2000 * u, display: "flex", justifyContent: "center" }}>
-              <Frame
-                screen={hero}
-                design={design}
-                style={{
-                  width: hero.kind === "mobile" ? "38%" : "92%",
-                  transform: `rotateY(${-design.device.perspective}deg) rotateX(4deg) rotate(${design.device.rotate}deg) scale(${design.device.scale})`,
-                }}
-              />
-            </div>
-          </div>
-        );
-      case "hero-support":
-        return (
-          <div style={{ position: "absolute", inset: 0 }}>
-            <div style={{ position: "absolute", left: pad, top: pad }}>
-              <Copy brand={brand} design={design} width={width} align="left" max={width * 0.45} />
-            </div>
-            <div style={{ position: "absolute", inset: 0, top: "38%" }}>
-              {picked.slice(1, 3).map((s, i) => (
-                <Frame
-                  key={s.id}
-                  screen={s}
-                  design={design}
-                  style={{
-                    position: "absolute",
-                    width: s.kind === "mobile" ? "18%" : "46%",
-                    left: i === 0 ? "6%" : "auto",
-                    right: i === 1 ? "6%" : "auto",
-                    top: 40 * u,
-                    opacity: 0.92,
-                    transform: `rotate(${i === 0 ? -4 : 4}deg)`,
-                  }}
-                />
-              ))}
-              <Frame
-                screen={hero}
-                design={design}
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  width: hero.kind === "mobile" ? "24%" : "58%",
-                  zIndex: 3,
-                }}
-              />
-            </div>
-          </div>
-        );
-      case "phone-fan":
-        return (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: pad, gap: 30 * u }}>
-            <Copy brand={brand} design={design} width={width} align="center" max={width * 0.6} />
-            <div style={{ position: "relative", flex: 1, width: "100%", perspective: 2200 * u }}>
-              {picked.slice(0, 3).map((s, i) => {
-                const order = [1, 0, 2][i]!;
-                const offset = (order - 1) * 24;
-                return (
-                  <Frame
-                    key={s.id}
-                    screen={s}
-                    design={design}
-                    style={{
-                      position: "absolute",
-                      width: s.kind === "mobile" ? "24%" : "40%",
-                      left: `${50 + offset}%`,
-                      top: `${order === 1 ? 2 : 8}%`,
-                      transform: `translateX(-50%) rotate(${(order - 1) * 9}deg) scale(${order === 1 ? 1.06 : 0.92})`,
-                      zIndex: order === 1 ? 3 : 1,
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        );
-      case "browser-dashboard":
-        return (
-          <div style={{ position: "absolute", inset: pad, display: "flex", flexDirection: "column", gap: 36 * u }}>
-            <Copy brand={brand} design={design} width={width} align="left" max={width * 0.55} />
-            <div style={{ flex: 1, overflow: "hidden", display: "flex", justifyContent: "center" }}>
-              <Frame screen={hero} design={design} style={{ width: "100%" }} />
-            </div>
-          </div>
-        );
-      case "responsive-pair":
-        return (
-          <div style={{ position: "absolute", inset: 0 }}>
-            <div style={{ position: "absolute", left: pad, top: pad }}>
-              <Copy brand={brand} design={design} width={width} align="left" max={width * 0.42} />
-            </div>
-            <Frame screen={hero} design={design} style={{ position: "absolute", left: "10%", top: "40%", width: "62%" }} />
-            {picked[1] && (
-              <Frame
-                screen={picked[1]}
-                design={design}
-                style={{ position: "absolute", right: "10%", top: "34%", width: "18%", zIndex: 4 }}
-              />
-            )}
-          </div>
-        );
-      case "screen-grid":
-        return (
-          <div style={{ position: "absolute", inset: pad, display: "flex", flexDirection: "column", gap: 32 * u }}>
-            <Copy brand={brand} design={design} width={width} align="left" max={width * 0.6} />
-            <div
-              style={{
-                flex: 1,
-                display: "grid",
-                gridTemplateColumns: `repeat(${picked.length > 4 ? 3 : 2}, 1fr)`,
-                gap: 28 * u,
-                overflow: "hidden",
-              }}
-            >
-              {picked.map((s) => (
-                <div key={s.id} style={{ overflow: "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
-                  <Frame screen={s} design={design} style={{ width: s.kind === "mobile" ? "58%" : "100%" }} crop={false} />
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      case "editorial-type":
-        return (
-          <div style={{ position: "absolute", inset: 0 }}>
-            <div style={{ position: "absolute", left: pad, top: pad, right: pad }}>
-              <Copy brand={brand} design={design} width={width} align="left" max={width * 0.9} />
-            </div>
-            <Frame
-              screen={hero}
-              design={design}
-              style={{
-                position: "absolute",
-                right: pad,
-                bottom: -height * 0.12,
-                width: hero.kind === "mobile" ? "22%" : "52%",
-                transform: `rotate(${design.device.rotate || -3}deg)`,
-              }}
-            />
-            {picked[1] && (
-              <Frame
-                screen={picked[1]}
-                design={design}
-                style={{ position: "absolute", left: pad, bottom: -height * 0.16, width: picked[1].kind === "mobile" ? "18%" : "34%", opacity: 0.95 }}
-              />
-            )}
-          </div>
-        );
-      case "split-background":
-        return (
-          <div style={{ position: "absolute", inset: 0, display: "flex" }}>
-            <div
-              style={{
-                width: "44%",
-                background: design.background.glow,
-                display: "flex",
-                alignItems: "center",
-                padding: pad,
-              }}
-            >
-              <Copy brand={brand} design={design} width={width} align="left" max={width * 0.34} />
-            </div>
-            <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              <Frame
-                screen={hero}
-                design={design}
-                style={{ width: hero.kind === "mobile" ? "36%" : "84%", transform: `translateX(-12%) rotate(${design.device.rotate}deg)` }}
-              />
-              {picked[1] && (
-                <Frame
-                  screen={picked[1]}
-                  design={design}
-                  style={{ position: "absolute", right: "6%", bottom: "8%", width: picked[1].kind === "mobile" ? "22%" : "38%" }}
-                />
-              )}
-            </div>
-          </div>
-        );
-      case "perspective-wall":
-        return (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", paddingTop: pad, paddingLeft: pad, gap: 30 * u }}>
-            <Copy brand={brand} design={design} width={width} align="left" max={width * 0.5} />
-            <div style={{ flex: 1, perspective: 1800 * u, display: "flex", alignItems: "center", gap: 26 * u, paddingLeft: 40 * u }}>
-              {picked.slice(0, 5).map((s, i) => (
-                <Frame
-                  key={s.id}
-                  screen={s}
-                  design={design}
-                  style={{
-                    flex: "0 0 auto",
-                    width: s.kind === "mobile" ? `${16 - i}%` : `${34 - i * 3}%`,
-                    transform: `rotateY(${-design.device.perspective - 6}deg) translateZ(${-i * 40}px)`,
-                    opacity: 1 - i * 0.08,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      case "detail-crop":
-        return (
-          <div style={{ position: "absolute", inset: 0 }}>
-            <div
-              style={{
-                position: "absolute",
-                inset: `${height * 0.22}px ${pad}px ${pad}px ${pad}px`,
-                overflow: "hidden",
-                borderRadius: design.device.radius,
-                boxShadow: `0 ${50 * design.device.shadow}px ${110 * design.device.shadow}px rgba(3,6,18,0.5)`,
-              }}
-            >
-              <img
-                src={hero.url}
-                alt={hero.name}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top left", transform: "scale(1.35)", transformOrigin: "top left" }}
-              />
-            </div>
-            <div style={{ position: "absolute", left: pad, top: pad * 0.7 }}>
-              <Copy brand={brand} design={design} width={width} align="left" max={width * 0.6} />
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  })();
-
-  return (
-    <div
-      style={{
-        width,
-        height,
-        position: "relative",
-        overflow: "hidden",
-        ...bgStyle(design),
-        fontFamily: FONT_STACK[design.type.font],
-      }}
-    >
-      {design.background.kind === "grid" && (
+      <Grain amount={comp.grain} />
+      {comp.vignette > 0 && (
         <div
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: `linear-gradient(${design.type.color}18 1px, transparent 1px), linear-gradient(90deg, ${design.type.color}18 1px, transparent 1px)`,
-            backgroundSize: `${64 * u}px ${64 * u}px`,
-          }}
-        />
-      )}
-      {design.background.kind === "radial-glow" && (
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "-10%",
-            width: "70%",
-            height: "70%",
-            transform: "translateX(-50%)",
-            background: `radial-gradient(circle, ${design.background.glow}66, transparent 65%)`,
-            filter: `blur(${60 * u}px)`,
-          }}
-        />
-      )}
-      {body}
-      <Grain amount={design.background.noise} />
-      {design.background.vignette > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: `radial-gradient(80% 70% at 50% 45%, transparent 40%, rgba(0,0,0,${design.background.vignette}))`,
+            zIndex: 50,
             pointerEvents: "none",
+            background: `radial-gradient(80% 70% at ${comp.nodes[0]?.x ?? 0.5 ? (comp.nodes[0]?.x ?? 0.5) * 100 : 50}% 45%, transparent 42%, rgba(0,0,0,${comp.vignette}))`,
           }}
         />
       )}
