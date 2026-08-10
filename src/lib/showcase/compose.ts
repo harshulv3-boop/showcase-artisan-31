@@ -431,12 +431,12 @@ function typeZones(m: number): Zone[] {
     {
       name: "editorial-top",
       text: { x: 0.16, w: 0.68, align: "center", anchor: "top" },
-      stage: { x0: -0.02, x1: 1.02, y0: 0.34, y1: 1.1 },
+      stage: { x0: -0.02, x1: 1.02, y0: 0.4, y1: 1.08 },
     },
     {
       name: "caption-base",
       text: { x: m, w: 0.52, align: "left", anchor: "bottom" },
-      stage: { x0: -0.02, x1: 1.06, y0: -0.08, y1: 0.66 },
+      stage: { x0: -0.02, x1: 1.06, y0: -0.08, y1: 0.6 },
     },
     {
       name: "corner-note",
@@ -463,10 +463,10 @@ function stageNodes(ctx: Ctx, nodes: SceneNode[], stage: Zone["stage"]): SceneNo
     const w = w0 * k;
     const h = h0 * k;
     // a plane may hang off a canvas edge, never into the copy column
-    const minX = stage.x0 + w * (stage.x0 <= 0 ? 0.3 : 0.44);
-    const maxX = stage.x1 - w * (stage.x1 >= 1 ? 0.3 : 0.44);
-    const minY = stage.y0 + h * (stage.y0 <= 0 ? 0.36 : 0.48);
-    const maxY = stage.y1 - h * (stage.y1 >= 1 ? 0.36 : 0.48);
+    const minX = stage.x0 + w * (stage.x0 <= 0 ? 0.3 : 0.54);
+    const maxX = stage.x1 - w * (stage.x1 >= 1 ? 0.3 : 0.54);
+    const minY = stage.y0 + h * (stage.y0 <= 0 ? 0.36 : 0.56);
+    const maxY = stage.y1 - h * (stage.y1 >= 1 ? 0.36 : 0.56);
     const px = stage.x0 + n.x * sw;
     const py = stage.y0 + n.y * sh;
     return {
