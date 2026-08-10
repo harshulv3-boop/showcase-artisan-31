@@ -20,15 +20,38 @@ export type ReferenceRole =
   | "lighting"
   | "arrangement";
 
+/** Raw visual signals measured from a reference image. */
+export type RefSignals = {
+  colors: string[];
+  luminance: number;
+  saturation: number;
+  contrast: number;
+  warmth: number;
+  colorVariance: number;
+  edgeDensity: number;
+  symmetry: number;
+  negativeSpace: number;
+  focalX: number;
+  focalY: number;
+  bleed: number;
+  lightAngle: number;
+  lightIntensity: number;
+  massSpread: number;
+  clusters: number;
+  width: number;
+  height: number;
+  aspect: number;
+};
+
 export type Reference = {
   id: string;
   name: string;
   url: string;
   role: ReferenceRole;
-  colors: string[];
-  luminance: number;
-  saturation: number;
+  signals: RefSignals;
 };
+
+export type FontKey = "grotesk" | "serif" | "mono" | "sans";
 
 export type Brand = {
   product: string;
@@ -38,10 +61,8 @@ export type Brand = {
   logo: string | null;
   primary: string;
   accent: string;
-  font: FontKey;
+  font: FontKey | "auto";
 };
-
-export type FontKey = "grotesk" | "serif" | "mono" | "sans";
 
 export type OutputType =
   | "dribbble"
@@ -64,59 +85,118 @@ export type PresetKey =
   | "monochrome"
   | "glass";
 
-export type LayoutKey =
-  | "hero-center"
-  | "angled-hero"
-  | "hero-support"
-  | "phone-fan"
-  | "browser-dashboard"
-  | "responsive-pair"
-  | "screen-grid"
-  | "editorial-type"
-  | "split-background"
-  | "perspective-wall"
-  | "detail-crop";
-
-export type BackgroundKind =
-  | "solid"
-  | "gradient"
-  | "mesh"
-  | "radial-glow"
-  | "studio"
-  | "grid"
-  | "paper";
-
-export type Design = {
-  id: string;
-  label: string;
-  layout: LayoutKey;
-  background: {
-    kind: BackgroundKind;
-    from: string;
-    to: string;
-    glow: string;
-    noise: number;
-    vignette: number;
-    angle: number;
+/** Design principles distilled from the references — never a template. */
+export type ArtDirection = {
+  dark: boolean;
+  palette: string[];
+  ink: string;
+  accent: string;
+  focal: { x: number; y: number };
+  negativeSpace: number;
+  symmetry: number;
+  density: number;
+  bleed: number;
+  depthPlanes: number;
+  perspective: { tiltY: number; tiltX: number; roll: number };
+  lighting: { angle: number; intensity: number; falloff: number };
+  spacing: { margin: number; gutter: number };
+  typography: {
+    font: FontKey;
+    scaleRatio: number;
+    tracking: number;
+    weight: number;
+    upper: boolean;
+    align: "left" | "center" | "right";
   };
   device: {
     frame: boolean;
     bezel: "dark" | "light";
-    perspective: number;
-    rotate: number;
-    scale: number;
-    shadow: number;
     radius: number;
+    shadow: number;
+    edgeLight: number;
+    glass: number;
   };
-  type: {
-    font: FontKey;
-    size: number;
-    align: "left" | "center";
-    show: boolean;
-    color: string;
-    accent: string;
+  decor: {
+    rules: boolean;
+    dots: boolean;
+    blocks: boolean;
+    badges: boolean;
+    arcs: boolean;
+    intensity: number;
   };
-  screenIds: string[];
+  notes: string[];
+};
+
+export type BgLayer =
+  | { t: "linear"; from: string; to: string; angle: number }
+  | { t: "radial"; color: string; x: number; y: number; r: number; blur: number; opacity: number }
+  | { t: "conic"; from: string; to: string; x: number; y: number; opacity: number }
+  | { t: "grid"; color: string; size: number; opacity: number }
+  | { t: "stripes"; color: string; size: number; angle: number; opacity: number }
+  | { t: "blob"; color: string; x: number; y: number; w: number; h: number; blur: number; opacity: number; rotate: number }
+  | { t: "ring"; color: string; x: number; y: number; r: number; thickness: number; opacity: number }
+  | { t: "band"; color: string; x: number; y: number; w: number; h: number; angle: number; opacity: number };
+
+export type DecorItem = {
+  t: "rule" | "dot-grid" | "block" | "badge" | "arc" | "caption";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  angle: number;
+  color: string;
+  opacity: number;
+  text?: string;
+};
+
+export type SceneNode = {
+  id: string;
+  screenId: string;
+  /** centre position, fraction of canvas */
+  x: number;
+  y: number;
+  /** width as fraction of canvas width */
+  w: number;
+  rotate: number;
+  tiltY: number;
+  tiltX: number;
+  z: number;
+  opacity: number;
+  blur: number;
+  frame: boolean;
+  crop: null | { scale: number; ox: number; oy: number; ratio: number };
+};
+
+export type TextBlock = {
+  show: boolean;
+  x: number;
+  y: number;
+  w: number;
+  align: "left" | "center" | "right";
+  font: FontKey;
+  scale: number;
+  tracking: number;
+  weight: number;
+  upper: boolean;
+  color: string;
+  accent: string;
+  kicker: string;
+};
+
+export type Composition = {
+  id: string;
+  label: string;
+  seed: number;
+  arrangement: string;
+  base: string;
+  layers: BgLayer[];
+  grain: number;
+  vignette: number;
+  nodes: SceneNode[];
+  decor: DecorItem[];
+  text: TextBlock;
+  device: ArtDirection["device"];
+  tune: { scale: number; spread: number; tilt: number };
   notes: string[];
 };
 
