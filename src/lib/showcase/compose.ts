@@ -484,7 +484,9 @@ function buildDecor(dir: ArtDirection, rnd: () => number, brand: Brand, textY: n
     out.push({ t: "dot-grid", x: mix(0.02, 0.1, rnd()), y: mix(0.55, 0.82, rnd()), w: mix(0.1, 0.22, rnd()), h: mix(0.08, 0.2, rnd()), angle: 0, color: dir.ink, opacity: clamp(k * 0.5) });
   }
   if (dir.decor.blocks) {
-    out.push({ t: "block", x: mix(0.02, 0.85, rnd()), y: mix(0.02, 0.85, rnd()), w: mix(0.04, 0.18, rnd()), h: mix(0.01, 0.08, rnd()), angle: rnd() > 0.7 ? 90 : 0, color: dir.accent, opacity: clamp(0.25 + k * 0.5) });
+    // thin accent bar pinned to a margin — never a floating rectangle mid-canvas
+    out.push({ t: "block", x: rnd() > 0.5 ? 1 - dir.spacing.margin - 0.06 : dir.spacing.margin, y: mix(0.08, 0.86, rnd()), w: 0.004, h: mix(0.06, 0.18, rnd()), angle: 0, color: dir.accent, opacity: clamp(0.3 + k * 0.4) });
+
   }
   if (dir.decor.arcs) {
     out.push({ t: "arc", x: mix(0.6, 0.95, rnd()), y: mix(0.05, 0.4, rnd()), w: mix(0.1, 0.28, rnd()), h: mix(0.1, 0.28, rnd()), angle: rnd() * 360, color: dir.accent, opacity: clamp(k * 0.6) });
