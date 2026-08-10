@@ -1,4 +1,4 @@
-import type { ArtDirection, Brand, FontKey, PresetKey, Reference } from "./types";
+import type { AiPlan, ArtDirection, Brand, FontKey, PresetKey, Reference } from "./types";
 import { MOODS } from "./moods";
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));

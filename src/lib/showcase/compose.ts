@@ -490,6 +490,23 @@ function buildDecor(dir: ArtDirection, rnd: () => number, brand: Brand, textY: n
 
 /* ---------------- composer ---------------- */
 
+const ARRANGEMENT_ALIAS: Record<string, string> = {
+  solo: "focal-solo",
+  "focal-solo": "focal-solo",
+  cascade: "diagonal-cascade",
+  "diagonal-cascade": "diagonal-cascade",
+  orbit: "orbital-cluster",
+  "orbital-cluster": "orbital-cluster",
+  wall: "receding-wall",
+  "receding-wall": "receding-wall",
+  mosaic: "irregular-mosaic",
+  "irregular-mosaic": "irregular-mosaic",
+  "split-cluster": "weighted-split",
+  "weighted-split": "weighted-split",
+  "macro-crop": "macro-crop",
+  "shear-stack": "shear-stack",
+};
+
 export function composeVariants(opts: {
   dir: ArtDirection;
   screens: Screen[];
@@ -498,6 +515,8 @@ export function composeVariants(opts: {
   ratio: Ratio;
   count?: number;
   salt?: number;
+  /** per-variant plan from the AI art director */
+  plan?: AiVariantPlan[];
 }): Composition[] {
   const { dir, screens, brand, ratio } = opts;
   if (!screens.length) return [];
