@@ -587,48 +587,49 @@ export function composeVariants(opts: {
     const rotation = i % Math.max(1, ranked.length);
     const pool = [...ranked.slice(rotation), ...ranked.slice(0, rotation)];
     const ctx: Ctx = { dir: v, screens, rnd, ratio: canvasRatio };
-    const nodes = st.fn(ctx, pool).sort((a, b) => a.z - b.z);
+    const raw = st.fn(ctx, pool).sort((a, b) => a.z - b.z);
 
     const { base, layers } = buildBackground(v, rnd, i);
 
-    // typography treatment drifts per variant: scale, case, alignment, weight
-    const typeScale = v.typography.scaleRatio * mix(0.75, 1.4, rnd());
-    const align: "left" | "center" | "right" =
-      rnd() < 0.25 ? "center" : v.typography.align === "center" ? (rnd() < 0.5 ? "left" : "center") : v.typography.align;
-    const blockW = clamp(mix(0.26, 0.52, rnd()) * (align === "center" ? 1.4 : 1), 0.22, 0.72);
-    const blockH = clamp(0.16 + typeScale * 0.12, 0.14, 0.42);
-    const spot = placeText(ctx, nodes, blockW, blockH);
-    const finalW = Math.max(0.18, spot.w);
-    // narrow blocks get proportionally smaller type so copy never overruns
-    const fittedScale = typeScale * clamp(0.55 + finalW * 1.2, 0.6, 1.15);
-    // estimate rendered height so the block never runs off the canvas
+    // pick a copy zone first — the devices are staged into what remains
+    const hasCopy = Boolean(brand.headline || brand.sub || brand.product);
+    const zones = typeZones(clamp(v.spacing.margin, 0.05, 0.11));
+    const pool2 = hasCopy ? zones.filter((z) => z.text) : zones.filter((z) => !z.text);
+    const zone = (pool2.length ? pool2 : zones)[Math.floor(rnd() * (pool2.length || zones.length))]!;
+    const laid = stageNodes(ctx, raw, zone.stage);
+
+    // typography treatment drifts per variant: scale, case, weight
+    const typeScale = v.typography.scaleRatio * mix(0.85, 1.35, rnd());
+    const tz = zone.text;
+    const finalW = tz?.w ?? 0.4;
+    const fittedScale = typeScale * clamp(0.6 + finalW * 1.1, 0.65, 1.2);
     const charsPerLine = Math.max(6, (finalW * 1600) / (40 * fittedScale));
     const lines = Math.ceil(Math.max(1, brand.headline.length) / charsPerLine);
     const estHeight =
-      lines * 0.062 * fittedScale +
-      (brand.sub ? 0.075 * fittedScale : 0) +
-      (brand.product || brand.logo ? 0.04 * fittedScale : 0) +
-      (brand.cta ? 0.05 * fittedScale : 0);
+      lines * 0.068 * fittedScale +
+      (brand.sub ? 0.08 * fittedScale : 0) +
+      (brand.product || brand.logo ? 0.045 * fittedScale : 0) +
+      (brand.cta ? 0.055 * fittedScale : 0);
+    const m = clamp(v.spacing.margin, 0.05, 0.11);
+    const anchorY =
+      tz?.anchor === "top" ? m : tz?.anchor === "bottom" ? 1 - m - estHeight : 0.5 - estHeight / 2;
 
     const text = {
-      show: Boolean(brand.headline || brand.sub || brand.product),
-      x: clamp(spot.x + v.spacing.margin * 0.3, 0.03, 1 - finalW - 0.03),
-      y: clamp(spot.y + v.spacing.margin * 0.3, 0.03, Math.max(0.03, 1 - estHeight - 0.04)),
+      show: hasCopy && Boolean(tz),
+      x: tz?.x ?? m,
+      y: clamp(anchorY, 0.035, Math.max(0.035, 1 - estHeight - 0.035)),
       w: finalW,
-      align,
+      align: tz?.align ?? "left",
       font: v.typography.font,
       scale: fittedScale,
-
-      tracking: v.typography.tracking + (rnd() - 0.5) * 0.03,
-      weight: rnd() < 0.3 ? 400 : v.typography.weight,
-      upper: rnd() < 0.3 ? !v.typography.upper : v.typography.upper,
+      tracking: v.typography.tracking + (rnd() - 0.5) * 0.02,
+      weight: rnd() < 0.25 ? 400 : v.typography.weight,
+      upper: rnd() < 0.25 ? !v.typography.upper : v.typography.upper,
       color: v.ink,
       accent: v.accent,
       kicker: brand.product,
     };
 
-    // hierarchy pass: nothing is allowed to sit under the copy
-    const laid = text.show ? clearTypeZone(ctx, nodes, text.x, text.y, finalW, blockH) : nodes;
 
 
     const device = {
