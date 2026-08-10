@@ -559,11 +559,19 @@ export function composeVariants(opts: {
     const finalW = Math.max(0.18, spot.w);
     // narrow blocks get proportionally smaller type so copy never overruns
     const fittedScale = typeScale * clamp(0.55 + finalW * 1.2, 0.6, 1.15);
+    // estimate rendered height so the block never runs off the canvas
+    const charsPerLine = Math.max(6, (finalW * 1600) / (40 * fittedScale));
+    const lines = Math.ceil(Math.max(1, brand.headline.length) / charsPerLine);
+    const estHeight =
+      lines * 0.062 * fittedScale +
+      (brand.sub ? 0.075 * fittedScale : 0) +
+      (brand.product || brand.logo ? 0.04 * fittedScale : 0) +
+      (brand.cta ? 0.05 * fittedScale : 0);
 
     const text = {
       show: Boolean(brand.headline || brand.sub || brand.product),
       x: clamp(spot.x + v.spacing.margin * 0.3, 0.03, 1 - finalW - 0.03),
-      y: clamp(spot.y + v.spacing.margin * 0.3, 0.03, 0.9),
+      y: clamp(spot.y + v.spacing.margin * 0.3, 0.03, Math.max(0.03, 1 - estHeight - 0.04)),
       w: finalW,
       align,
       font: v.typography.font,
